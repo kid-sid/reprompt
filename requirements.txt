@@ -1,0 +1,14 @@
+fastapi
+pydantic
+httpx
+loguru
+python-dotenv
+uvicorn
+pydantic-settings
+requests
+redis
+openai
+vllm
+mistral_common
+transformers
+torch
