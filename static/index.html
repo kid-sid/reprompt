@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reprompt Chatbot - Prompt Optimizer</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --container-bg: white;
+            --text-color: #333;
+            --text-secondary: #666;
+            --border-color: #ddd;
+            --button-bg: #007bff;
+            --button-hover: #0056b3;
+            --result-bg: #f8f9fa;
+            --result-border: #007bff;
+            --error-bg: #f8d7da;
+            --error-border: #dc3545;
+            --error-text: #721c24;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --container-bg: #2d2d2d;
+            --text-color: #ffffff;
+            --text-secondary: #b0b0b0;
+            --border-color: #444;
+            --button-bg: #007bff;
+            --button-hover: #0056b3;
+            --result-bg: #3a3a3a;
+            --result-border: #007bff;
+            --error-bg: #4a2a2a;
+            --error-border: #dc3545;
+            --error-text: #ff6b6b;
+        }
+
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .theme-toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .theme-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--button-bg);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .theme-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-right: 10px;
+        }
+
+        .container {
+            background: var(--container-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--text-color);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-family: inherit;
+            resize: vertical;
+            background-color: var(--container-bg);
+            color: var(--text-color);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--button-bg);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        button {
+            background-color: var(--button-bg);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: var(--button-hover);
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--result-bg);
+            border-radius: 5px;
+            border-left: 4px solid var(--result-border);
+            color: var(--text-color);
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .error {
+            background-color: var(--error-bg);
+            border-left-color: var(--error-border);
+            color: var(--error-text);
+        }
+
+        .theme-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Reprompt Chatbot</h1>
+            <div class="theme-container">
+                <span class="theme-label">🌙</span>
+                <label class="theme-toggle">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="theme-label">☀️</span>
+            </div>
+        </div>
+        
+        <p style="text-align: center; color: var(--text-secondary); margin-bottom: 30px;">
+            Optimize your prompts for better AI responses
+        </p>
+        
+        <form id="promptForm">
+            <div class="form-group">
+                <label for="prompt">Enter your prompt:</label>
+                <textarea 
+                    id="prompt" 
+                    name="prompt" 
+                    placeholder="Type your prompt here... For example: 'Write a story about a cat'"
+                    required
+                ></textarea>
+            </div>
+            
+            <button type="submit" id="submitBtn">Optimize Prompt</button>
+        </form>
+        
+        <div id="result" class="result" style="display: none;">
+            <h3>Optimized Prompt:</h3>
+            <p id="optimizedText"></p>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+        
+        // Check for saved theme preference or default to light mode
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        html.setAttribute('data-theme', savedTheme);
+        themeToggle.checked = savedTheme === 'dark';
+        
+        // Theme toggle event listener
+        themeToggle.addEventListener('change', function() {
+            const theme = this.checked ? 'dark' : 'light';
+            html.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        });
+
+        // Form functionality
+        const form = document.getElementById('promptForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const resultDiv = document.getElementById('result');
+        const optimizedText = document.getElementById('optimizedText');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const prompt = document.getElementById('prompt').value;
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Optimizing...';
+            resultDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/v1/optimize-prompt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        max_tokens: 512
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Show result
+                optimizedText.textContent = data.output;
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                optimizedText.textContent = `Error: ${error.message}`;
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+            } finally {
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Optimize Prompt';
+            }
+        });
+    </script>
+</body>
+</html>
