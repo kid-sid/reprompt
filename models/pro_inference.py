@@ -53,8 +53,8 @@ REQUIREMENTS:
 Please provide the optimized version:""",
                 },
             ],
-            max_tokens=settings.MAX_TOKENS,
-            temperature=settings.TEMPERATURE,
+            max_tokens=settings.PRO_MAX_TOKENS,
+            temperature=settings.PRO_TEMPERATURE,
         )
         return completion.choices[0].message.content
     except Exception as e:
