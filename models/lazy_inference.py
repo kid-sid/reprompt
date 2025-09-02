@@ -38,8 +38,8 @@ Make it:
 Just give me the improved prompt:""",
                 },
             ],
-            max_tokens=settings.MAX_TOKENS,
-            temperature=settings.TEMPERATURE,
+            max_tokens=settings.LAZY_MAX_TOKENS,
+            temperature=settings.LAZY_TEMPERATURE,
         )
         return completion.choices[0].message.content
     except Exception as e:
