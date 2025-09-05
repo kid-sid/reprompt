@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from loguru import logger
-
+from datetime import datetime
 from schemas.auth_schema import (
     UserRegisterRequest, UserRegisterResponse,
     UserLoginRequest, UserLoginResponse,
@@ -44,7 +44,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-@router.post("/register", response_model=UserRegisterResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/signup", response_model=UserRegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: UserRegisterRequest):
     """Register a new user with email and password"""
     try:
@@ -110,7 +110,7 @@ async def login_user(login_data: UserLoginRequest):
 async def logout_user(logout_data: LogoutRequest):
     """Logout user and invalidate refresh token"""
     try:
-        logger.info("User logout attempt")
+        logger.info(f"User logout attempt with token: {logout_data.refresh_token}...")
         result = await auth_service.logout_user(logout_data.refresh_token)
         logger.info("User logged out successfully")
         return result
@@ -180,11 +180,26 @@ async def auth_health_check():
         return {
             "status": "healthy",
             "service": "authentication",
-            "timestamp": "2024-01-01T00:00:00Z"  # You can make this dynamic
+            "timestamp":datetime.utcnow().isoformat()  # You can make this dynamic
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service is not healthy"
+        )
+
+@router.post("/create-missing-profiles", response_model=dict)
+async def create_missing_profiles():
+    """Create profiles for users who exist in auth.users but not in profiles table"""
+    try:
+        logger.info("Creating missing profiles for existing auth users")
+        result = await auth_service.create_missing_profiles()
+        logger.info(f"Profile creation completed: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to create missing profiles: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create missing profiles"
         )
