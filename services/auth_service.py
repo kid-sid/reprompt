@@ -455,9 +455,27 @@ class AuthService:
                 "last_login": None
             }
             
+            logger.info(f"Attempting to create profile for user {user.id} with data: {profile_data}")
+            
+            # Test if we can access the table first
+            try:
+                test_query = self.supabase.table("profiles").select("count").limit(1).execute()
+                logger.info(f"Profiles table access test successful: {test_query}")
+            except Exception as test_e:
+                logger.error(f"Profiles table access test failed: {test_e}")
+                raise test_e
+            
             # Insert into profiles table
-            self.supabase.table("profiles").insert(profile_data).execute()
-            logger.info(f"User profile created in database: {user.id}")
+            response = self.supabase.table("profiles").insert(profile_data).execute()
+            logger.info(f"User profile created in database: {user.id}, response: {response}")
+            
+            # Verify the insert worked
+            verify_query = self.supabase.table("profiles").select("*").eq("id", user.id).execute()
+            logger.info(f"Profile verification query result: {verify_query}")
+            
+            if not verify_query.data:
+                logger.error(f"Profile insert appeared successful but verification failed for user {user.id}")
+                raise Exception("Profile insert verification failed")
             
             return UserProfile(
                 id=user.id,
@@ -466,7 +484,13 @@ class AuthService:
             )
             
         except Exception as e:
-            logger.warning(f"Failed to create profile record for user {user.id}: {e}")
+            logger.error(f"Failed to create profile record for user {user.id}: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error details: {str(e)}")
+            
+            # Try to create the table if it doesn't exist
+            await self._ensure_profiles_table_exists()
+            
             # Return basic profile even if database insert fails
             return UserProfile(
                 id=user.id,
@@ -535,6 +559,51 @@ class AuthService:
         except Exception as e:
             logger.warning(f"Session cleanup failed: {e}")
     
+    async def _ensure_profiles_table_exists(self):
+        """Ensure the profiles table exists with proper structure"""
+        try:
+            # Try to query the table to see if it exists
+            self.supabase.table("profiles").select("count").limit(1).execute()
+            logger.info("Profiles table exists and is accessible")
+        except Exception as e:
+            logger.error(f"Profiles table issue: {e}")
+            logger.error("""
+            ========================================
+            PROFILES TABLE SETUP REQUIRED
+            ========================================
+            
+            The 'profiles' table doesn't exist or isn't accessible.
+            
+            To fix this, run this SQL in your Supabase SQL Editor:
+            
+            CREATE TABLE IF NOT EXISTS profiles (
+                id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+                email TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                status TEXT DEFAULT 'active',
+                last_login TIMESTAMPTZ
+            );
+            
+            -- Enable RLS (Row Level Security)
+            ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+            
+            -- Create policies for authenticated users
+            CREATE POLICY "Users can view own profile" ON profiles
+                FOR SELECT USING (auth.uid() = id);
+            
+            CREATE POLICY "Users can insert own profile" ON profiles
+                FOR INSERT WITH CHECK (auth.uid() = id);
+            
+            CREATE POLICY "Users can update own profile" ON profiles
+                FOR UPDATE USING (auth.uid() = id);
+            
+            -- Allow service role to manage all profiles
+            CREATE POLICY "Service role can manage all profiles" ON profiles
+                FOR ALL USING (auth.role() = 'service_role');
+            
+            ========================================
+            """)
+    
     async def _send_welcome_email(self, email: str, user_id: str):
         """Send welcome email to new user (placeholder for production)"""
         try:
@@ -565,6 +634,129 @@ class AuthService:
         except Exception as e:
             logger.debug(f"Failed to validate JWT and get user: {e}")
             return None
+    
+    async def diagnose_profiles_table(self) -> Dict[str, Any]:
+        """Diagnose profiles table issues"""
+        try:
+            diagnosis = {
+                "table_exists": False,
+                "table_accessible": False,
+                "can_insert": False,
+                "can_select": False,
+                "table_structure": None,
+                "rls_enabled": False,
+                "policies": [],
+                "errors": []
+            }
+            
+            # Test 1: Check if table exists and is accessible
+            try:
+                test_query = self.supabase.table("profiles").select("count").limit(1).execute()
+                diagnosis["table_exists"] = True
+                diagnosis["table_accessible"] = True
+                diagnosis["can_select"] = True
+                logger.info("✅ Profiles table exists and is accessible")
+            except Exception as e:
+                diagnosis["errors"].append(f"Table access error: {str(e)}")
+                logger.error(f"❌ Profiles table access failed: {e}")
+                return diagnosis
+            
+            # Test 2: Check table structure
+            try:
+                structure_query = self.supabase.table("profiles").select("*").limit(1).execute()
+                diagnosis["table_structure"] = "Table structure accessible"
+                logger.info("✅ Table structure check passed")
+            except Exception as e:
+                diagnosis["errors"].append(f"Structure check error: {str(e)}")
+                logger.error(f"❌ Table structure check failed: {e}")
+            
+            # Test 3: Try a test insert (with a dummy ID that won't conflict)
+            try:
+                test_id = f"test-{secrets.token_hex(8)}"
+                test_data = {
+                    "id": test_id,
+                    "email": f"test-{test_id}@example.com",
+                    "created_at": datetime.utcnow().isoformat(),
+                    "status": "test",
+                    "last_login": None
+                }
+                
+                insert_response = self.supabase.table("profiles").insert(test_data).execute()
+                diagnosis["can_insert"] = True
+                logger.info(f"✅ Test insert successful: {insert_response}")
+                
+                # Clean up test record
+                try:
+                    self.supabase.table("profiles").delete().eq("id", test_id).execute()
+                    logger.info("✅ Test record cleaned up")
+                except Exception as cleanup_e:
+                    logger.warning(f"⚠️ Failed to cleanup test record: {cleanup_e}")
+                    
+            except Exception as e:
+                diagnosis["errors"].append(f"Insert test error: {str(e)}")
+                logger.error(f"❌ Test insert failed: {e}")
+            
+            # Test 4: Check RLS status (this might not work with anon key)
+            try:
+                # This is a simplified check - in reality, RLS status might not be accessible via API
+                diagnosis["rls_enabled"] = "Unknown (requires service role)"
+            except Exception as e:
+                diagnosis["errors"].append(f"RLS check error: {str(e)}")
+            
+            return diagnosis
+            
+        except Exception as e:
+            logger.error(f"Diagnosis failed: {e}")
+            return {
+                "status": "diagnosis_failed",
+                "error": str(e)
+            }
+    
+    async def create_missing_profiles(self) -> Dict[str, Any]:
+        """Create profiles for users who exist in auth.users but not in profiles table"""
+        try:
+            # Get all users from auth
+            auth_users = self.supabase.auth.admin.list_users()
+            
+            created_count = 0
+            error_count = 0
+            
+            for auth_user in auth_users.users:
+                try:
+                    # Check if profile exists
+                    existing_profile = self.supabase.table("profiles").select("id").eq("id", auth_user.id).execute()
+                    
+                    if not existing_profile.data:
+                        # Create missing profile
+                        profile_data = {
+                            "id": auth_user.id,
+                            "email": auth_user.email,
+                            "created_at": datetime.utcnow().isoformat(),
+                            "status": "active",
+                            "last_login": None
+                        }
+                        
+                        self.supabase.table("profiles").insert(profile_data).execute()
+                        created_count += 1
+                        logger.info(f"Created profile for user: {auth_user.email}")
+                        
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"Failed to create profile for {auth_user.email}: {e}")
+            
+            return {
+                "status": "completed",
+                "created_profiles": created_count,
+                "errors": error_count,
+                "total_auth_users": len(auth_users.users)
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to create missing profiles: {e}")
+            return {
+                "status": "failed",
+                "error": str(e)
+            }
     
     async def health_check(self) -> Dict[str, Any]:
         """Comprehensive health check for the authentication service"""
