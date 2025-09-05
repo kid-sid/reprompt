@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from datetime import datetime
+
 
 # User Registration
 class UserRegisterRequest(BaseModel):
@@ -15,6 +15,7 @@ class UserRegisterRequest(BaseModel):
             raise ValueError('Passwords do not match')
         return self
 
+
 class UserRegisterResponse(BaseModel):
     """User registration response"""
     id: str = Field(..., description="User's unique identifier")
@@ -26,6 +27,7 @@ class UserLoginRequest(BaseModel):
     """User login with email and password"""
     email: EmailStr = Field(..., description="User's email address")
     password: str = Field(..., description="User's password")
+
 
 class UserLoginResponse(BaseModel):
     """User login response with tokens"""
