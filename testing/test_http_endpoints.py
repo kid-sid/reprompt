@@ -87,7 +87,7 @@ class HTTPAuthTester:
         if result:
             print(f"✅ Login successful")
             print(f"   Access Token: {result.get('access_token', '')[:20]}...")
-            print(f"   Refresh Token: {result.get('refresh_token', '')[:20]}...")
+            print(f"   Refresh Token: {result.get('refresh_token', '')}...")
             
             # Store tokens for later use
             self.access_token = result.get("access_token")
@@ -148,6 +148,7 @@ class HTTPAuthTester:
             print(f"✅ Token refreshed: {result}")
             # Update access token
             self.access_token = result.get("access_token")
+            self.refresh_token = result.get("refresh_token")
             return result
         return None
     
