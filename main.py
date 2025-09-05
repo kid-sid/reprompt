@@ -51,6 +51,12 @@ async def frontend():
     from fastapi.responses import FileResponse
     return FileResponse("static/index.html")
 
+@app.get("/auth")
+async def auth_page():
+    """Serve the authentication page"""
+    from fastapi.responses import FileResponse
+    return FileResponse("static/auth.html")
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
