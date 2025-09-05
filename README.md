@@ -147,6 +147,7 @@ uvicorn main:app --reload --port 8001
 
 7. **Access the application**
 - Frontend: http://localhost:8001/frontend
+- Authentication UI: http://localhost:8001/auth
 - API Docs: http://localhost:8001/docs
 - Health Check: http://localhost:8001/health
 
@@ -154,11 +155,12 @@ uvicorn main:app --reload --port 8001
 
 ### **User Registration**
 ```bash
-curl -X POST "http://localhost:8001/api/v1/auth/register" \
+curl -X POST "http://localhost:8001/api/v1/auth/signup" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
-    "password": "securepassword123"
+    "password": "securepassword123",
+    "confirm_password": "securepassword123"
   }'
 ```
 
@@ -187,7 +189,42 @@ curl -X POST "http://localhost:8001/api/v1/auth/refresh" \
 ### **Logout**
 ```bash
 curl -X POST "http://localhost:8001/api/v1/auth/logout" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "YOUR_REFRESH_TOKEN"
+  }'
+```
+
+## 🎨 Frontend Authentication UI
+
+### **Authentication Interface**
+The application includes a complete frontend authentication interface accessible at `http://localhost:8001/auth`:
+
+#### **Features**
+- **User Registration** with email/password and confirmation
+- **User Login** with secure token storage
+- **Logout** functionality with token cleanup
+- **Real-time feedback** with success/error messages
+- **Token Management** (access + refresh tokens)
+
+#### **UI Components**
+- **Signup Form**: Email, password, and password confirmation fields
+- **Login Form**: Email and password fields
+- **Logout Button**: Secure session termination
+- **Message Display**: Real-time status updates
+
+#### **Security Features**
+- **Client-side validation** for password matching
+- **Secure token storage** in localStorage
+- **Automatic token cleanup** on logout
+- **Error handling** with user-friendly messages
+
+#### **File Structure**
+```
+static/
+├── new_auth.html    # Authentication UI page
+├── auth.js         # Frontend authentication logic
+└── index.html      # Main application interface
 ```
 
 ## 🤖 AI Inference API
@@ -361,6 +398,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
 - ✅ Complete authentication system
 - ✅ Production-ready infrastructure
 - ✅ Comprehensive error handling
+- ✅ Frontend authentication UI
 
 ### **Phase 2 (Planned)**
 - 🔄 Redis caching integration
@@ -373,6 +411,30 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
 - 📋 Batch processing capabilities
 - 📋 API rate limit management
 - 📋 Advanced caching strategies
+
+## 📝 Changelog
+
+### **v2.1.0 - Frontend Authentication UI (Latest)**
+**Added:**
+- ✅ Complete frontend authentication interface (`/auth`)
+- ✅ User registration form with password confirmation
+- ✅ User login form with token management
+- ✅ Logout functionality with token cleanup
+- ✅ Real-time success/error message display
+- ✅ Secure token storage in localStorage
+
+**Fixed:**
+- ✅ Signup API request format (added `confirm_password` field)
+- ✅ Logout API integration (proper refresh token handling)
+- ✅ Token management (both access and refresh tokens)
+
+**Removed:**
+- ❌ Fetch profile functionality (replaced with logout)
+
+**Updated:**
+- 🔄 Authentication API documentation
+- 🔄 Frontend file structure documentation
+- 🔄 Access URLs and endpoints
 
 ## 🆘 Support & Troubleshooting
 
@@ -426,6 +488,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ using modern Python best practices**
 
-**Version**: 2.0.0  
-**Last Updated**: September 2024  
+**Version**: 2.1.0  
+**Last Updated**: December 2024  
 **Status**: Production Ready 🚀
