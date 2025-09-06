@@ -11,3 +11,4 @@ openai
 mistral_common
 transformers
 torch
+supabase
