@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from routes.inference_router import router as inference_router
 from routes.auth_router import router as auth_router
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -48,14 +50,12 @@ async def root():
 @app.get("/frontend")
 async def frontend():
     """Serve the frontend application"""
-    from fastapi.responses import FileResponse
-    return FileResponse("static/index.html")
+    return FileResponse("static/chatbot.html")
 
 @app.get("/auth")
 async def auth_page():
     """Serve the authentication page"""
-    from fastapi.responses import FileResponse
-    return FileResponse("static/auth.html")
+    return FileResponse(os.path.join("static", "auth.html"))
 
 @app.get("/health")
 async def health_check():
