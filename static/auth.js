@@ -1,109 +1,154 @@
-const API_BASE = "http://localhost:8001/api/v1/auth";
+// auth.js
+import { API_BASE, ENDPOINTS, STORAGE_KEYS, ROUTES } from "./config.js";
 
 // ===== SIGNUP =====
-document.getElementById("signup-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+async function handleSignup(event) {
+  event.preventDefault();
 
-  const email = document.getElementById("signup-email").value;
-  const password = document.getElementById("signup-password").value;
-  const confirm = document.getElementById("signup-confirm").value;
-  const msgDiv = document.getElementById("signup-message");
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPassword").value;
+  const confirmPassword = document.getElementById("signupConfirmPassword").value;
+  const messageDiv = document.getElementById("signupMessage");
 
-  if (password !== confirm) {
-    msgDiv.textContent = "❌ Passwords do not match!";
-    msgDiv.className = "error";
+  if (password !== confirmPassword) {
+    showMessage(messageDiv, "❌ Passwords do not match!", "error");
     return;
   }
 
   try {
-    const res = await fetch(`${API_BASE}/signup`, {
+    const response = await fetch(`${API_BASE}${ENDPOINTS.REGISTER}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, confirm_password: confirm }),
+      body: JSON.stringify({ email, password, confirm_password: confirmPassword }),
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      msgDiv.textContent = "❌ " + (data.detail || "Signup failed");
-      msgDiv.className = "error";
-      return;
-    }
+    const data = await response.json();
 
-    msgDiv.textContent = "✅ Signup successful!";
-    msgDiv.className = "success";
-  } catch (err) {
-    msgDiv.textContent = "❌ Error: " + err.message;
-    msgDiv.className = "error";
+    if (response.ok) {
+      showMessage(messageDiv, "✅ Signup successful! Please login now.", "success");
+      setTimeout(() => {
+        showLoginForm();
+        clearMessage(messageDiv);
+      }, 1500);
+    } else {
+      showMessage(messageDiv, "❌ " + (data.detail || "Signup failed."), "error");
+    }
+  } catch (error) {
+    console.error("Signup error:", error);
+    showMessage(messageDiv, "❌ Something went wrong during signup.", "error");
   }
-});
+}
 
 // ===== LOGIN =====
-document.getElementById("login-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+async function handleLogin(event) {
+  event.preventDefault();
 
-  const email = document.getElementById("login-email").value;
-  const password = document.getElementById("login-password").value;
-  const msgDiv = document.getElementById("login-message");
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const messageDiv = document.getElementById("loginMessage");
 
   try {
-    const res = await fetch(`${API_BASE}/login`, {
+    const response = await fetch(`${API_BASE}${ENDPOINTS.LOGIN}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      msgDiv.textContent = "❌ " + (data.detail || "Login failed");
-      msgDiv.className = "error";
-      return;
+    const data = await response.json();
+    console.log("Login response:", data);
+
+    if (response.ok) {
+      // Save tokens in localStorage
+      localStorage.setItem(STORAGE_KEYS.TOKEN, data.access_token);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token);
+      localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
+
+      showMessage(messageDiv, "✅ Login successful! Redirecting...", "success");
+      
+      // Redirect to chatbot page after a short delay
+      setTimeout(() => {
+        window.location.href = ROUTES.CHATBOT;
+      }, 1000);
+    } else {
+      showMessage(messageDiv, "❌ " + (data.detail || "Login failed."), "error");
     }
-
-    // Save tokens to localStorage
-    localStorage.setItem("access_token", data.access_token);
-    localStorage.setItem("refresh_token", data.refresh_token);
-
-    msgDiv.textContent = "✅ Login successful!";
-    msgDiv.className = "success";
-  } catch (err) {
-    msgDiv.textContent = "❌ Error: " + err.message;
-    msgDiv.className = "error";
+  } catch (error) {
+    console.error("Login error:", error);
+    showMessage(messageDiv, "❌ Something went wrong during login.", "error");
   }
-});
+}
 
 // ===== LOGOUT =====
-document.getElementById("logout-btn").addEventListener("click", async () => {
-  const refreshToken = localStorage.getItem("refresh_token");
-  const msgDiv = document.getElementById("logout-message");
+async function handleLogout() {
+  const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  
+  try {
+    if (refreshToken) {
+      await fetch(`${API_BASE}${ENDPOINTS.LOGOUT}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    }
+  } catch (error) {
+    console.error("Logout error:", error);
+  } finally {
+    // Clear all stored data
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+    
+    // Redirect to auth page
+    window.location.href = ROUTES.AUTH;
+  }
+}
 
-  if (!refreshToken) {
-    msgDiv.textContent = "❌ No active session found!";
-    msgDiv.className = "error";
+// ===== Toggle between forms =====
+function showSignupForm() {
+  document.getElementById("loginForm").classList.add("hidden");
+  document.getElementById("signupForm").classList.remove("hidden");
+  clearMessage(document.getElementById("loginMessage"));
+}
+
+function showLoginForm() {
+  document.getElementById("signupForm").classList.add("hidden");
+  document.getElementById("loginForm").classList.remove("hidden");
+  clearMessage(document.getElementById("signupMessage"));
+}
+
+// Make functions globally available for onclick handlers
+window.showSignupForm = showSignupForm;
+window.showLoginForm = showLoginForm;
+
+// ===== Message handling =====
+function showMessage(element, message, type) {
+  element.textContent = message;
+  element.className = type;
+}
+
+function clearMessage(element) {
+  element.textContent = "";
+  element.className = "";
+}
+
+// ===== Attach listeners =====
+document.addEventListener("DOMContentLoaded", () => {
+  // Check if already logged in
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+  if (token && window.location.pathname === "/auth") {
+    window.location.href = ROUTES.CHATBOT;
     return;
   }
 
-  try {
-    const res = await fetch(`${API_BASE}/logout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      msgDiv.textContent = "❌ " + (data.detail || "Logout failed");
-      msgDiv.className = "error";
-      return;
-    }
-
-    // Clear tokens from localStorage
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-
-    msgDiv.textContent = "✅ Logout successful!";
-    msgDiv.className = "success";
-  } catch (err) {
-    msgDiv.textContent = "❌ Error: " + err.message;
-    msgDiv.className = "error";
+  // Attach form listeners
+  const signupForm = document.getElementById("signupForm");
+  const loginForm = document.getElementById("loginForm");
+  
+  if (signupForm) {
+    signupForm.addEventListener("submit", handleSignup);
+  }
+  
+  if (loginForm) {
+    loginForm.addEventListener("submit", handleLogin);
   }
 });
