@@ -15,7 +15,37 @@ redis_service = RedisService()
 
 @router.post("/optimize-prompt", response_model=InferenceResponse)
 async def optimize_prompt_endpoint(request: InferenceRequest):
-    """Optimize a user prompt using AI to make it more efficient and effective."""
+    """
+    Optimize a user prompt using AI to make it more efficient and effective.
+    
+    This endpoint takes a user's prompt and optimizes it using either Lazy or Pro mode
+    AI inference. It first checks the Redis cache for existing optimizations before
+    calling the AI service. Results are cached for future requests.
+    
+    Args:
+        request (InferenceRequest): Optimization request containing:
+            - prompt (str): The user's original prompt to optimize
+            - inference_type (InferenceType): Either "lazy" or "pro" mode
+            - max_tokens (int, optional): Maximum tokens for the response
+    
+    Returns:
+        InferenceResponse: Optimization response containing:
+            - output (str): The optimized prompt
+            - tokens_used (int): Number of tokens consumed (currently 0)
+            - inference_type (str): The mode used ("lazy" or "pro")
+            - model_used (str): The AI model used for optimization
+            - cached (bool): Whether the result was served from cache
+    
+    Raises:
+        HTTPException: 400 if invalid inference type is provided
+        HTTPException: 500 if internal server error occurs during optimization
+        
+    Note:
+        - Lazy mode uses GPT-3.5 for simple, efficient optimization
+        - Pro mode uses GPT-4 for advanced optimization techniques
+        - Results are cached in Redis for improved performance
+        - Token counting is not yet implemented (returns 0)
+    """
 
     try:
         logger.info(f"Received {request.inference_type} prompt optimization request: {request.prompt[:50]}...")
@@ -65,13 +95,60 @@ async def optimize_prompt_endpoint(request: InferenceRequest):
 
 @router.get("/health")
 async def inference_health():
-    """Health check for the inference service."""
+    """
+    Health check for the inference service.
+    
+    Provides a simple health check endpoint for the inference service.
+    This endpoint can be used for monitoring, load balancer health checks,
+    and service availability verification.
+    
+    Returns:
+        dict: Health status containing:
+            - status (str): "inference service is healthy"
+    
+    Raises:
+        None: This endpoint does not raise exceptions
+        
+    Note:
+        This is a lightweight endpoint that does not perform deep health checks
+        of external services like OpenAI or Redis. For detailed service status,
+        use the /cache/stats endpoint.
+    """
     
     return {"status": "inference service is healthy"}
 
 @router.get("/models")
 async def get_available_models():
-    """Get information about available models and inference types."""
+    """
+    Get information about available AI models and inference types.
+    
+    Returns detailed configuration information about the available inference modes,
+    including model specifications, parameters, and optimization techniques used
+    for each mode.
+    
+    Returns:
+        dict: Model information containing:
+            - lazy (dict): Lazy mode configuration:
+                - model (str): AI model name (e.g., "gpt-3.5-turbo")
+                - description (str): Brief description of the mode
+                - technique (str): Optimization technique used
+                - max_tokens (int): Maximum tokens for responses
+                - temperature (float): AI model temperature setting
+            - pro (dict): Pro mode configuration:
+                - model (str): AI model name (e.g., "gpt-4")
+                - description (str): Brief description of the mode
+                - technique (str): Advanced optimization techniques
+                - max_tokens (int): Maximum tokens for responses
+                - temperature (float): AI model temperature setting
+    
+    Raises:
+        None: This endpoint does not raise exceptions
+        
+    Note:
+        Configuration values are read from the application settings.
+        This endpoint is useful for frontend applications to display
+        available options and their characteristics to users.
+    """
     
     return {
         "lazy": {
@@ -92,7 +169,32 @@ async def get_available_models():
 
 @router.get("/cache/stats")
 async def get_cache_stats():
-    """Get cache statistics and information."""
+    """
+    Get Redis cache statistics and information.
+    
+    Retrieves comprehensive statistics about the Redis cache service,
+    including connection status, memory usage, and performance metrics.
+    This endpoint is useful for monitoring cache performance and health.
+    
+    Returns:
+        dict: Cache statistics containing:
+            - status (str): Cache service status ("available", "unavailable", "error")
+            - cache_enabled (bool): Whether caching is enabled
+            - redis_version (str): Version of Redis server
+            - connected_clients (int): Number of connected Redis clients
+            - used_memory_human (str): Human-readable memory usage
+            - total_commands_processed (int): Total Redis commands processed
+            - message (str): Additional status message (on error/unavailable)
+    
+    Raises:
+        None: This endpoint handles errors gracefully and returns status information
+        
+    Note:
+        - Returns "unavailable" status if Redis is not configured
+        - Returns "error" status if Redis connection fails
+        - Memory usage is returned in human-readable format (e.g., "1.2M")
+        - This endpoint is useful for system monitoring and debugging
+    """
     try:
         if not redis_service.redis_client:
             return {
@@ -122,7 +224,29 @@ async def get_cache_stats():
 
 @router.delete("/cache/clear")
 async def clear_cache():
-    """Clear all cached prompt optimizations."""
+    """
+    Clear all cached prompt optimizations from Redis.
+    
+    Removes all cached optimization results from the Redis cache. This operation
+    is useful for cache maintenance, testing, or when you need to force fresh
+    AI responses for all prompts.
+    
+    Returns:
+        dict: Clear operation result containing:
+            - message (str): Success or status message
+            - deleted_count (int): Number of cache entries deleted
+    
+    Raises:
+        HTTPException: 503 if Redis service is not available
+        HTTPException: 500 if cache clearing operation fails
+        
+    Note:
+        - Only clears keys matching the pattern "prompt_optimization:*"
+        - Returns count of 0 if cache is already empty
+        - This operation is irreversible - all cached optimizations will be lost
+        - Use with caution in production environments as it will impact performance
+        - Consider using this endpoint for maintenance windows or testing
+    """
     try:
         if not redis_service.redis_client:
             raise HTTPException(status_code=503, detail="Redis service not available")
