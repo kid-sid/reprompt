@@ -116,7 +116,7 @@ async function refreshToken(isProactive = false) {
   if (!refreshTokenValue) {
     console.error("No refresh token available");
     if (!isProactive) {
-      redirectToLogin();
+    redirectToLogin();
     }
     return null;
   }
@@ -149,14 +149,14 @@ async function refreshToken(isProactive = false) {
     } else {
       console.error("Token refresh failed:", response.status);
       if (!isProactive) {
-        redirectToLogin();
+      redirectToLogin();
       }
       return null;
     }
   } catch (error) {
     console.error("Token refresh error:", error);
     if (!isProactive) {
-      redirectToLogin();
+    redirectToLogin();
     }
     return null;
   }
@@ -435,7 +435,7 @@ function initializeEventListeners() {
   if (newChatBtn) {
     newChatBtn.addEventListener("click", handleNewChat);
   }
-  
+
   // Logout button
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
@@ -515,7 +515,7 @@ function scrollToBottom() {
 // ===== CHAT FUNCTIONS =====
 async function handleSubmit(event) {
   event.preventDefault();
-  
+
   if (isLoading) return;
   
   const input = document.getElementById("promptInput");
@@ -541,7 +541,7 @@ async function handleSubmit(event) {
   
   // Add loading message
   const loadingId = addLoadingMessage();
-  
+
   try {
     const response = await makeAuthenticatedRequest(`${API_BASE}${ENDPOINTS.CHAT}`, {
       method: "POST",
@@ -551,9 +551,9 @@ async function handleSubmit(event) {
         max_tokens: 512
       })
     });
-    
+
     const data = await response.json();
-    
+
     if (response.ok) {
       // Remove loading message
       removeLoadingMessage(loadingId);
