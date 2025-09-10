@@ -49,7 +49,8 @@ logger.info("All routers included successfully")
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Reprompt Chatbot API"}
+    """Redirect to auth page by default"""
+    return FileResponse("static/auth.html")
 
 @app.get("/frontend")
 async def frontend():
