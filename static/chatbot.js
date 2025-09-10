@@ -1,64 +1,259 @@
-// chatbot.js
+// chatbot.js - Modern Chatbot Interface
 import { API_BASE, ENDPOINTS, STORAGE_KEYS, ROUTES } from "./config.js";
 
-// ===== AUTH CHECK =====
+// ===== GLOBAL STATE =====
 let token = localStorage.getItem(STORAGE_KEYS.TOKEN);
-const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+let userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+let currentInferenceMode = localStorage.getItem("inferenceMode") || "lazy";
+let isLoading = false;
+let chatHistory = [];
+let currentChatId = null;
+let refreshTimer = null;
+let sessionWarningTimer = null;
 
+// ===== AUTHENTICATION CHECK =====
 if (!token || !userEmail) {
-  alert("❌ Please login first.");
+  console.log("No authentication found, redirecting to login...");
   window.location.href = ROUTES.AUTH;
+  throw new Error("Not authenticated");
 }
 
-// ===== TOKEN REFRESH FUNCTION =====
-async function refreshToken() {
-  const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+// ===== UTILITY FUNCTIONS =====
+function showToast(message, type = "info", duration = 3000) {
+  // Create toast element
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === "error" ? "#ef4444" : type === "success" ? "#10b981" : "#3b82f6"};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    animation: slideIn 0.3s ease;
+  `;
   
-  if (!refreshToken) {
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = "slideOut 0.3s ease";
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ===== JWT TOKEN UTILITIES =====
+function parseJWT(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Error parsing JWT:', error);
+    return null;
+  }
+}
+
+function getTokenExpiration(token) {
+  const payload = parseJWT(token);
+  if (!payload || !payload.exp) {
+    return null;
+  }
+  return payload.exp * 1000; // Convert to milliseconds
+}
+
+function getTokenTimeUntilExpiry(token) {
+  const expiration = getTokenExpiration(token);
+  if (!expiration) {
+    return null;
+  }
+  return expiration - Date.now();
+}
+
+function isTokenExpired(token) {
+  const timeUntilExpiry = getTokenTimeUntilExpiry(token);
+  return timeUntilExpiry === null || timeUntilExpiry <= 0;
+}
+
+function isTokenExpiringSoon(token, thresholdMinutes = 5) {
+  const timeUntilExpiry = getTokenTimeUntilExpiry(token);
+  if (timeUntilExpiry === null) {
+    return false;
+  }
+  const thresholdMs = thresholdMinutes * 60 * 1000;
+  return timeUntilExpiry <= thresholdMs && timeUntilExpiry > 0;
+}
+
+function getInitials(email) {
+  return email.split('@')[0].substring(0, 2).toUpperCase();
+}
+
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+// ===== TOKEN MANAGEMENT =====
+async function refreshToken(isProactive = false) {
+  const refreshTokenValue = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  
+  if (!refreshTokenValue) {
     console.error("No refresh token available");
-    redirectToLogin();
+    if (!isProactive) {
+      redirectToLogin();
+    }
     return null;
   }
 
   try {
+    console.log(`Token refresh ${isProactive ? '(proactive)' : '(reactive)'} initiated`);
+    
     const response = await fetch(`${API_BASE}/auth${ENDPOINTS.REFRESH}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        refresh_token: refreshToken
-      })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshTokenValue })
     });
 
     if (response.ok) {
       const data = await response.json();
       const newToken = data.access_token;
       
-      // Update stored token
       localStorage.setItem(STORAGE_KEYS.TOKEN, newToken);
-      token = newToken; // Update the global token variable
+      token = newToken;
       
       console.log("Token refreshed successfully");
+      
+      // Restart proactive refresh timer with new token
+      if (isProactive) {
+        startProactiveTokenRefresh();
+        showToast("Session refreshed automatically", "success", 2000);
+      }
+      
       return newToken;
     } else {
       console.error("Token refresh failed:", response.status);
-      redirectToLogin();
+      if (!isProactive) {
+        redirectToLogin();
+      }
       return null;
     }
   } catch (error) {
     console.error("Token refresh error:", error);
-    redirectToLogin();
+    if (!isProactive) {
+      redirectToLogin();
+    }
     return null;
   }
 }
+
+// ===== PROACTIVE TOKEN REFRESH =====
+function startProactiveTokenRefresh() {
+  // Clear existing timers
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+  }
+  if (sessionWarningTimer) {
+    clearTimeout(sessionWarningTimer);
+  }
+  
+  if (!token) {
+    console.log("No token available for proactive refresh");
+    return;
+  }
+  
+  const timeUntilExpiry = getTokenTimeUntilExpiry(token);
+  if (!timeUntilExpiry || timeUntilExpiry <= 0) {
+    console.log("Token already expired, skipping proactive refresh");
+    return;
+  }
+  
+  // Set refresh timer to refresh 5 minutes before expiry
+  const refreshThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
+  const refreshTime = Math.max(timeUntilExpiry - refreshThreshold, 30000); // At least 30 seconds
+  
+  console.log(`Token expires in ${Math.round(timeUntilExpiry / 60000)} minutes. Will refresh in ${Math.round(refreshTime / 60000)} minutes.`);
+  
+  refreshTimer = setTimeout(async () => {
+    console.log("Proactive token refresh triggered");
+    await refreshToken(true);
+  }, refreshTime);
+  
+  // Set warning timer to show notification 2 minutes before expiry
+  const warningThreshold = 2 * 60 * 1000; // 2 minutes in milliseconds
+  const warningTime = Math.max(timeUntilExpiry - warningThreshold, 10000); // At least 10 seconds
+  
+  if (warningTime < refreshTime) {
+    sessionWarningTimer = setTimeout(() => {
+      showSessionExpirationWarning();
+    }, warningTime);
+  }
+}
+
+function showSessionExpirationWarning() {
+  const timeUntilExpiry = getTokenTimeUntilExpiry(token);
+  if (!timeUntilExpiry || timeUntilExpiry <= 0) {
+    return;
+  }
+  
+  const minutesLeft = Math.round(timeUntilExpiry / 60000);
+  showToast(
+    `Your session will expire in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}. Refreshing automatically...`,
+    "warning",
+    5000
+  );
+}
+
+function stopProactiveTokenRefresh() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+  if (sessionWarningTimer) {
+    clearTimeout(sessionWarningTimer);
+    sessionWarningTimer = null;
+  }
+}
+
+// ===== PAGE VISIBILITY HANDLING =====
+function handlePageVisibilityChange() {
+  if (document.hidden) {
+    console.log("Page hidden, pausing proactive refresh");
+    // Don't stop timers completely, just log for debugging
+  } else {
+    console.log("Page visible, checking token status");
+    // Check if token needs refresh when page becomes visible
+    if (token && isTokenExpiringSoon(token, 10)) { // 10 minutes threshold
+      console.log("Token expiring soon, refreshing proactively");
+      refreshToken(true);
+    }
+  }
+}
+
+// Add page visibility change listener
+document.addEventListener('visibilitychange', handlePageVisibilityChange);
 
 function redirectToLogin() {
   localStorage.clear();
   window.location.href = ROUTES.AUTH;
 }
 
-// ===== AUTHENTICATED API CALL HELPER =====
+// ===== API COMMUNICATION =====
 async function makeAuthenticatedRequest(url, options = {}) {
   const defaultOptions = {
     headers: {
@@ -79,13 +274,11 @@ async function makeAuthenticatedRequest(url, options = {}) {
   try {
     const response = await fetch(url, requestOptions);
     
-    // If token is expired, try to refresh and retry
     if (response.status === 401) {
       console.log("Token expired, attempting refresh...");
       const newToken = await refreshToken();
       
       if (newToken) {
-        // Retry the request with the new token
         requestOptions.headers.Authorization = `Bearer ${newToken}`;
         return await fetch(url, requestOptions);
       } else {
@@ -100,235 +293,322 @@ async function makeAuthenticatedRequest(url, options = {}) {
   }
 }
 
-// ===== NEW CHAT FUNCTION =====
-function handleNewChat() {
-  // Clear the chat messages
-  const chatMessages = document.getElementById("chatMessages");
-  if (chatMessages) {
-    chatMessages.innerHTML = `
-      <div class="welcome-message">
-        <div class="welcome-text">
-          <h1>What are you working on?</h1>
-        </div>
-      </div>
-    `;
-  }
-  
-  // Clear the input field
-  const promptInput = document.getElementById("prompt");
-  if (promptInput) {
-    promptInput.value = "";
-  }
-  
-  // Re-enable send button
-  const sendBtn = document.getElementById("sendBtn");
-  if (sendBtn) {
-    sendBtn.disabled = false;
-  }
-  
-  // Scroll to top
-  if (chatMessages) {
-    chatMessages.scrollTop = 0;
-  }
-}
-
-// ===== LOGOUT FUNCTION =====
-async function handleLogout() {
-  const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-  
+// ===== UI INITIALIZATION =====
+document.addEventListener("DOMContentLoaded", async () => {
   try {
-    if (refreshToken) {
-      await fetch(`${API_BASE}/auth${ENDPOINTS.LOGOUT}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-    }
-  } catch (error) {
-    console.error("Logout error:", error);
-  } finally {
-    // Clear all stored data
-    localStorage.removeItem(STORAGE_KEYS.TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+    console.log("Initializing chatbot...");
     
-    // Redirect to auth page
-    console.log("Redirecting to:", ROUTES.AUTH); // Debug log
-    window.location.href = ROUTES.AUTH;
+    // Validate authentication
+    await validateToken();
+    
+    // Start proactive token refresh
+    startProactiveTokenRefresh();
+    
+    // Initialize UI components
+    initializeUserProfile();
+    initializeInferenceToggle();
+    initializeEventListeners();
+    initializeInputHandling();
+    initializeScrollHandling();
+    
+    // Load initial data
+    await loadChatHistory();
+    
+    console.log("Chatbot initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize chatbot:", error);
+    showToast("Failed to initialize chatbot", "error");
+    redirectToLogin();
+  }
+});
+
+// ===== USER PROFILE =====
+function initializeUserProfile() {
+  const userAvatar = document.getElementById("userAvatar");
+  const userName = document.getElementById("userName");
+  const userEmailElement = document.getElementById("userEmail");
+  
+  if (userAvatar) {
+    const initials = getInitials(userEmail);
+    userAvatar.querySelector("#userInitials").textContent = initials;
+  }
+  
+  if (userName) {
+    userName.textContent = userEmail.split('@')[0];
+  }
+  
+  if (userEmailElement) {
+    userEmailElement.textContent = userEmail;
+  }
+  
+  // Add session status indicator
+  updateSessionStatus();
+}
+
+function updateSessionStatus() {
+  if (!token) return;
+  
+  const timeUntilExpiry = getTokenTimeUntilExpiry(token);
+  if (!timeUntilExpiry || timeUntilExpiry <= 0) return;
+  
+  const minutesLeft = Math.round(timeUntilExpiry / 60000);
+  const hoursLeft = Math.round(timeUntilExpiry / 3600000);
+  
+  // Create or update session status element
+  let sessionStatus = document.getElementById("sessionStatus");
+  if (!sessionStatus) {
+    sessionStatus = document.createElement("div");
+    sessionStatus.id = "sessionStatus";
+    sessionStatus.style.cssText = `
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 1000;
+      display: none;
+    `;
+    document.body.appendChild(sessionStatus);
+  }
+  
+  // Show status if session expires within 30 minutes
+  if (timeUntilExpiry <= 30 * 60 * 1000) {
+    const timeText = hoursLeft > 0 ? `${hoursLeft}h ${minutesLeft % 60}m` : `${minutesLeft}m`;
+    sessionStatus.textContent = `Session expires in ${timeText}`;
+    sessionStatus.style.display = 'block';
+    
+    // Change color based on urgency
+    if (timeUntilExpiry <= 5 * 60 * 1000) {
+      sessionStatus.style.background = 'rgba(239, 68, 68, 0.9)'; // Red
+    } else if (timeUntilExpiry <= 15 * 60 * 1000) {
+      sessionStatus.style.background = 'rgba(245, 158, 11, 0.9)'; // Orange
+    } else {
+      sessionStatus.style.background = 'rgba(59, 130, 246, 0.9)'; // Blue
+    }
+  } else {
+    sessionStatus.style.display = 'none';
+  }
+  
+  // Update every minute
+  setTimeout(updateSessionStatus, 60000);
+}
+
+// ===== INFERENCE MODE TOGGLE =====
+function initializeInferenceToggle() {
+  const toggle = document.getElementById("inferenceToggle");
+  const modeLabel = document.getElementById("modeLabel");
+  const modeDescription = document.getElementById("modeDescription");
+  
+  if (!toggle) return;
+  
+  // Set initial state
+  toggle.classList.toggle("active", currentInferenceMode === "pro");
+  updateModeDisplay();
+  
+  toggle.addEventListener("click", () => {
+    currentInferenceMode = currentInferenceMode === "lazy" ? "pro" : "lazy";
+    localStorage.setItem("inferenceMode", currentInferenceMode);
+    
+    toggle.classList.toggle("active", currentInferenceMode === "pro");
+    updateModeDisplay();
+    
+    showToast(`Switched to ${currentInferenceMode} mode`, "success", 2000);
+  });
+  
+  function updateModeDisplay() {
+    if (modeLabel) {
+      modeLabel.textContent = currentInferenceMode.charAt(0).toUpperCase() + currentInferenceMode.slice(1);
+    }
+    if (modeDescription) {
+      modeDescription.textContent = currentInferenceMode === "pro" ? "(GPT-4)" : "(GPT-3.5)";
+    }
   }
 }
 
-// ===== Initialize UI =====
-document.addEventListener("DOMContentLoaded", () => {
-  // Set user email in both locations
-  const userEmailElement = document.getElementById("userEmail");
-  const sidebarUserEmailElement = document.getElementById("sidebarUserEmail");
-  if (userEmailElement) {
-    userEmailElement.textContent = `Welcome, ${userEmail}`;
-  }
-  if (sidebarUserEmailElement) {
-    sidebarUserEmailElement.textContent = userEmail.split('@')[0]; // Show just the username part
-  }
-
-  // Attach logout buttons
-  const logoutBtn = document.getElementById("logoutBtn");
-  const sidebarLogoutBtn = document.getElementById("sidebarLogoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", handleLogout);
-  }
-  if (sidebarLogoutBtn) {
-    sidebarLogoutBtn.addEventListener("click", handleLogout);
-  }
-
-  // Attach new chat button
+// ===== EVENT LISTENERS =====
+function initializeEventListeners() {
+  // New chat button
   const newChatBtn = document.getElementById("newChatBtn");
   if (newChatBtn) {
     newChatBtn.addEventListener("click", handleNewChat);
   }
-
   
-  // Initialize inference toggle
-  initializeInferenceToggle();
+  // Logout button
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", handleLogout);
+  }
   
-  // Attach form listener
-  attachFormListener();
+  // Settings button
+  const settingsBtn = document.getElementById("settingsBtn");
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", handleSettings);
+  }
   
-  // Load prompt history
-  loadPromptHistory();
-  
-  // Initialize vertical scrollbar
-  initializeVerticalScrollbar();
-  
-  // Initialize copy button
-  initializeCopyButton();
-});
-
-
-// ===== Inference Toggle =====
-function initializeInferenceToggle() {
-  const inferenceToggle = document.getElementById("inferenceToggle");
-  const inferenceInfo = document.getElementById("inferenceInfo");
-  const savedInference = localStorage.getItem("inferenceType") || "lazy";
-  
-  inferenceToggle.checked = savedInference === "pro";
-  updateInferenceInfo(savedInference);
-  
-  inferenceToggle.addEventListener("change", function () {
-    const type = this.checked ? "pro" : "lazy";
-    updateInferenceInfo(type);
-    localStorage.setItem("inferenceType", type);
-  });
-}
-
-function updateInferenceInfo(type) {
-  const inferenceInfo = document.getElementById("inferenceInfo");
-  
-  if (type === "pro") {
-    inferenceInfo.innerHTML = `
-      <h4>⚡ Pro Mode <span class="model-badge pro">GPT-4</span></h4>
-      <p>Advanced prompt optimization with sophisticated techniques like chain-of-thought reasoning and role-based prompting.</p>
-    `;
-    inferenceInfo.className = "inference-info pro";
-  } else {
-    inferenceInfo.innerHTML = `
-      <h4>🐌 Lazy Mode <span class="model-badge lazy">GPT-3.5</span></h4>
-      <p>Simple and efficient prompt optimization with basic clarity and specificity improvements.</p>
-    `;
-    inferenceInfo.className = "inference-info";
+  // Scroll to bottom button
+  const scrollToBottomBtn = document.getElementById("scrollToBottom");
+  if (scrollToBottomBtn) {
+    scrollToBottomBtn.addEventListener("click", scrollToBottom);
   }
 }
 
-// ===== Form Handling =====
-function attachFormListener() {
-  const promptForm = document.getElementById("promptForm");
-  const promptTextarea = document.getElementById("prompt");
+// ===== INPUT HANDLING =====
+function initializeInputHandling() {
+  const form = document.getElementById("promptForm");
+  const input = document.getElementById("promptInput");
   
-  if (promptForm) {
-    promptForm.addEventListener("submit", handlePromptOptimization);
+  if (form) {
+    form.addEventListener("submit", handleSubmit);
   }
   
-  if (promptTextarea) {
-    promptTextarea.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        handlePromptOptimization(event);
+  if (input) {
+    // Auto-resize textarea
+    input.addEventListener("input", autoResizeTextarea);
+    
+    // Keyboard shortcuts
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit(e);
       }
+    });
+    
+    // Focus on load
+    input.focus();
+  }
+}
+
+function autoResizeTextarea() {
+  const textarea = document.getElementById("promptInput");
+  if (!textarea) return;
+  
+  textarea.style.height = "auto";
+  textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+}
+
+// ===== SCROLL HANDLING =====
+function initializeScrollHandling() {
+  const chatMessages = document.getElementById("chatMessages");
+  const scrollToBottomBtn = document.getElementById("scrollToBottom");
+  
+  if (chatMessages && scrollToBottomBtn) {
+    chatMessages.addEventListener("scroll", () => {
+      const isAtBottom = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 10;
+      scrollToBottomBtn.classList.toggle("visible", !isAtBottom);
     });
   }
 }
 
-async function handlePromptOptimization(event) {
-  event.preventDefault();
-
-  const prompt = document.getElementById("prompt").value.trim();
-  const inferenceType = document.getElementById("inferenceToggle").checked ? "pro" : "lazy";
+function scrollToBottom() {
   const chatMessages = document.getElementById("chatMessages");
-  const promptInput = document.getElementById("prompt");
-  const sendBtn = document.getElementById("sendBtn");
-
-  if (!prompt) return;
-
-  // Hide welcome message if it exists
-  const welcomeMessage = document.querySelector(".welcome-message");
-  if (welcomeMessage) {
-    welcomeMessage.style.display = "none";
+  if (chatMessages) {
+    chatMessages.scrollTo({
+      top: chatMessages.scrollHeight,
+      behavior: "smooth"
+    });
   }
+}
 
-  // Add user message to chat
-  addUserMessage(prompt);
+// ===== CHAT FUNCTIONS =====
+async function handleSubmit(event) {
+  event.preventDefault();
+  
+  if (isLoading) return;
+  
+  const input = document.getElementById("promptInput");
+  const prompt = input.value.trim();
+  
+  if (!prompt) {
+    showToast("Please enter a message", "error");
+    return;
+  }
+  
+  console.log("Submitting prompt:", prompt, "Mode:", currentInferenceMode);
   
   // Clear input and disable send button
-  promptInput.value = "";
-  sendBtn.disabled = true;
+  input.value = "";
+  autoResizeTextarea();
+  setLoadingState(true);
+  
+  // Hide welcome message
+  hideWelcomeMessage();
+  
+  // Add user message
+  addUserMessage(prompt);
   
   // Add loading message
   const loadingId = addLoadingMessage();
-
+  
   try {
     const response = await makeAuthenticatedRequest(`${API_BASE}${ENDPOINTS.CHAT}`, {
       method: "POST",
       body: JSON.stringify({
         prompt,
-        inference_type: inferenceType,
+        inference_type: currentInferenceMode,
         max_tokens: 512
       })
     });
-
+    
     const data = await response.json();
-
+    
     if (response.ok) {
-      // Remove loading message and add assistant response
+      // Remove loading message
       removeLoadingMessage(loadingId);
+      
+      // Add assistant message
       addAssistantMessage(
         data.output || "No optimization available.",
-        data.inference_type || inferenceType,
-        data.model_used || (inferenceType === "pro" ? "GPT-4" : "GPT-3.5"),
+        data.inference_type || currentInferenceMode,
+        data.model_used || (currentInferenceMode === "pro" ? "GPT-4" : "GPT-3.5"),
         data.tokens_used || "N/A"
       );
       
-      // Reload prompt history to show the new entry
-      loadPromptHistory();
+      // Reload chat history
+      await loadChatHistory();
+      
+      showToast("Response received!", "success", 2000);
     } else {
-      if (response.status === 401) {
-        localStorage.clear();
-        window.location.href = ROUTES.AUTH;
-        return;
-      }
       throw new Error(data.detail || `HTTP ${response.status}`);
     }
   } catch (error) {
-    console.error("Optimization error:", error);
-    
-    // Remove loading message and add error message
+    console.error("Error:", error);
     removeLoadingMessage(loadingId);
-    addAssistantMessage(`Error: ${error.message}`, inferenceType, "Error", "N/A", true);
+    addErrorMessage(error.message);
+    showToast("Failed to get response", "error");
   } finally {
-    // Re-enable send button
-    sendBtn.disabled = false;
+    setLoadingState(false);
+    input.focus();
   }
 }
 
-// ===== Chat Message Functions =====
+function setLoadingState(loading) {
+  isLoading = loading;
+  const sendBtn = document.getElementById("sendBtn");
+  const input = document.getElementById("promptInput");
+  
+  if (sendBtn) {
+    sendBtn.disabled = loading;
+    sendBtn.innerHTML = loading ? 
+      '<span class="loading-spinner"></span><span>Sending...</span>' : 
+      '<span>📤</span><span>Send</span>';
+  }
+  
+  if (input) {
+    input.disabled = loading;
+  }
+}
+
+function hideWelcomeMessage() {
+  const welcomeMessage = document.getElementById("welcomeMessage");
+  if (welcomeMessage) {
+    welcomeMessage.style.display = "none";
+  }
+}
+
+// ===== MESSAGE DISPLAY =====
 function addUserMessage(text) {
   const chatMessages = document.getElementById("chatMessages");
   const messageDiv = document.createElement("div");
@@ -336,37 +616,75 @@ function addUserMessage(text) {
   messageDiv.innerHTML = `
     <div class="message-avatar">👤</div>
     <div class="message-content">
-      <p>${text}</p>
+      <div class="message-header">
+        <span class="message-role">You</span>
+        <div class="message-actions">
+          <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message">
+            <span>📋</span>
+            <span>Copy</span>
+          </button>
+        </div>
+      </div>
+      <div class="message-text">${escapeHtml(text)}</div>
     </div>
   `;
   chatMessages.appendChild(messageDiv);
   scrollToBottom();
 }
 
-function addAssistantMessage(text, mode, model, tokens, isError = false) {
+function addAssistantMessage(text, mode, model, tokens) {
   const chatMessages = document.getElementById("chatMessages");
   const messageDiv = document.createElement("div");
   messageDiv.className = "message assistant-message";
-  
-  const copyButton = isError ? '' : `
-    <button class="copy-btn" onclick="copyMessageText(this)" title="Copy to clipboard">
-      <span class="copy-icon">📋</span>
-      <span class="copy-text">Copy</span>
-    </button>
-  `;
-  
   messageDiv.innerHTML = `
     <div class="message-avatar">🤖</div>
     <div class="message-content">
       <div class="message-header">
-        <h3>Optimized Prompt:</h3>
-        ${copyButton}
+        <span class="message-role">Assistant</span>
+        <div class="message-actions">
+          <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message">
+            <span>📋</span>
+            <span>Copy</span>
+          </button>
+          <button class="message-action-btn" onclick="likeMessage(this)" title="Like message">
+            <span>👍</span>
+            <span>Like</span>
+          </button>
+        </div>
       </div>
-      <p>${text}</p>
+      <div class="message-text">${escapeHtml(text)}</div>
       <div class="message-meta">
-        <strong>Mode:</strong> ${mode} | 
-        <strong>Model:</strong> ${model} | 
-        <strong>Tokens:</strong> ${tokens}
+        <div class="meta-item">
+          <span>Mode:</span>
+          <span class="chat-history-mode ${mode}">${mode.toUpperCase()}</span>
+        </div>
+        <div class="meta-item">
+          <span>Model:</span>
+          <span>${model}</span>
+        </div>
+        <div class="meta-item">
+          <span>Tokens:</span>
+          <span>${tokens}</span>
+        </div>
+      </div>
+    </div>
+  `;
+  chatMessages.appendChild(messageDiv);
+  scrollToBottom();
+}
+
+function addErrorMessage(message) {
+  const chatMessages = document.getElementById("chatMessages");
+  const messageDiv = document.createElement("div");
+  messageDiv.className = "message assistant-message";
+  messageDiv.innerHTML = `
+    <div class="message-avatar">⚠️</div>
+    <div class="message-content">
+      <div class="message-header">
+        <span class="message-role">Error</span>
+      </div>
+      <div class="message-text" style="color: var(--danger-color);">
+        ${escapeHtml(message)}
       </div>
     </div>
   `;
@@ -399,18 +717,168 @@ function removeLoadingMessage(loadingId) {
   }
 }
 
-function scrollToBottom() {
+// ===== CHAT HISTORY =====
+async function loadChatHistory() {
+  try {
+    const response = await makeAuthenticatedRequest(`${API_BASE}/prompt-history?page=1&page_size=20`, {
+      method: "GET"
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      chatHistory = data.items || [];
+      displayChatHistory();
+    } else {
+      console.error("Failed to load chat history:", response.status);
+    }
+  } catch (error) {
+    console.error("Error loading chat history:", error);
+  }
+}
+
+function displayChatHistory() {
+  const historyList = document.getElementById("chatHistoryList");
+  if (!historyList) return;
+  
+  if (chatHistory.length === 0) {
+    historyList.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 2rem 1rem; font-size: 0.875rem;">
+        No chat history yet.<br>
+        Start a conversation to see your history here!
+      </div>
+    `;
+    return;
+  }
+  
+  const historyHTML = chatHistory.map(item => `
+    <div class="chat-history-item" onclick="loadChatHistoryItem('${item.id}')" role="listitem">
+      <div class="chat-history-preview">
+        ${escapeHtml(item.original_prompt.substring(0, 60))}${item.original_prompt.length > 60 ? '...' : ''}
+      </div>
+      <div class="chat-history-meta">
+        <span class="chat-history-mode ${item.inference_type}">${item.inference_type.toUpperCase()}</span>
+        <span>${formatTimestamp(item.created_at)}</span>
+      </div>
+    </div>
+  `).join('');
+  
+  historyList.innerHTML = historyHTML;
+}
+
+async function loadChatHistoryItem(historyId) {
+  try {
+    const response = await makeAuthenticatedRequest(`${API_BASE}/prompt-history/${historyId}`, {
+      method: "GET"
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Clear current chat
+      const chatMessages = document.getElementById("chatMessages");
+      if (chatMessages) {
+        chatMessages.innerHTML = "";
+      }
+      
+      // Add history messages
+      addUserMessage(data.original_prompt);
+      addAssistantMessage(
+        data.optimized_prompt,
+        data.inference_type,
+        data.model_used,
+        data.tokens_used
+      );
+      
+      // Set input to original prompt
+      const input = document.getElementById("promptInput");
+      if (input) {
+        input.value = data.original_prompt;
+        autoResizeTextarea();
+      }
+      
+      showToast("Chat history loaded", "success", 2000);
+    } else {
+      showToast("Failed to load chat history", "error");
+    }
+  } catch (error) {
+    console.error("Error loading chat history item:", error);
+    showToast("Error loading chat history", "error");
+  }
+}
+
+// ===== ACTION HANDLERS =====
+function handleNewChat() {
+  console.log("Starting new chat...");
+  
+  // Clear chat messages
   const chatMessages = document.getElementById("chatMessages");
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  if (chatMessages) {
+    chatMessages.innerHTML = `
+      <div class="welcome-message" id="welcomeMessage">
+        <div class="welcome-content">
+          <h1 class="welcome-title">What are you working on?</h1>
+          <p class="welcome-subtitle">
+            Start a new conversation by typing your prompt below.
+          </p>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Clear input
+  const input = document.getElementById("promptInput");
+  if (input) {
+    input.value = "";
+    autoResizeTextarea();
+    input.focus();
+  }
+  
+  // Reset current chat ID
+  currentChatId = null;
+  
+  showToast("New chat started", "success", 2000);
+}
+
+async function handleLogout() {
+  const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  
+  try {
+    // Stop proactive refresh timers
+    stopProactiveTokenRefresh();
+    
+    if (refreshToken) {
+      await fetch(`${API_BASE}/auth${ENDPOINTS.LOGOUT}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    }
+  } catch (error) {
+    console.error("Logout error:", error);
+  } finally {
+    localStorage.clear();
+    window.location.href = ROUTES.AUTH;
+  }
+}
+
+function handleSettings() {
+  showToast("Settings feature coming soon!", "info");
+}
+
+// ===== UTILITY FUNCTIONS =====
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function copyMessageText(button) {
   const messageContent = button.closest('.message-content');
-  const textElement = messageContent.querySelector('p');
+  const textElement = messageContent.querySelector('.message-text');
   const textToCopy = textElement.textContent.trim();
   
   navigator.clipboard.writeText(textToCopy).then(() => {
-    const copyText = button.querySelector(".copy-text");
+    const copyText = button.querySelector("span:last-child");
     const originalText = copyText.textContent;
     
     button.classList.add("copied");
@@ -420,15 +888,30 @@ function copyMessageText(button) {
       button.classList.remove("copied");
       copyText.textContent = originalText;
     }, 2000);
+    
+    showToast("Message copied to clipboard", "success", 2000);
   }).catch(err => {
     console.error("Copy failed:", err);
+    showToast("Failed to copy message", "error");
   });
 }
 
-// Make copyMessageText globally available
-window.copyMessageText = copyMessageText;
+function likeMessage(button) {
+  const copyText = button.querySelector("span:last-child");
+  const originalText = copyText.textContent;
+  
+  button.classList.add("copied");
+  copyText.textContent = "Liked!";
+  
+  setTimeout(() => {
+    button.classList.remove("copied");
+    copyText.textContent = originalText;
+  }, 2000);
+  
+  showToast("Thanks for the feedback!", "success", 2000);
+}
 
-// ===== Token Validation =====
+// ===== TOKEN VALIDATION =====
 async function validateToken() {
   try {
     const response = await makeAuthenticatedRequest(`${API_BASE}/auth${ENDPOINTS.VALIDATE}`, {
@@ -445,231 +928,34 @@ async function validateToken() {
   }
 }
 
-// ===== Prompt History Functions =====
-async function loadPromptHistory() {
-  try {
-    const response = await makeAuthenticatedRequest(`${API_BASE}/prompt-history?page=1&page_size=20`, {
-      method: "GET"
-    });
+// ===== GLOBAL FUNCTIONS =====
+window.copyMessageText = copyMessageText;
+window.likeMessage = likeMessage;
+window.loadChatHistoryItem = loadChatHistoryItem;
 
-    if (response.ok) {
-      const data = await response.json();
-      displayPromptHistory(data.items);
-    } else {
-      console.error("Failed to load prompt history:", response.status);
+// ===== CSS ANIMATIONS =====
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
     }
-  } catch (error) {
-    console.error("Error loading prompt history:", error);
-  }
-}
-
-function displayPromptHistory(historyItems) {
-  const historyContainer = document.getElementById("sidebarPromptHistory");
-  if (!historyContainer) return;
-
-  if (historyItems.length === 0) {
-    historyContainer.innerHTML = "<p style='color: #8e8ea0; font-size: 12px;'>No prompt history yet. Start optimizing prompts to see your history here!</p>";
-    return;
-  }
-
-  const historyHTML = historyItems.map(item => `
-    <div class="sidebar-history-item" onclick="loadHistoryItem('${item.id}')">
-      <div class="sidebar-history-header">
-        <span class="sidebar-history-mode ${item.inference_type}">${item.inference_type.toUpperCase()}</span>
-        <span class="sidebar-history-date">${new Date(item.created_at).toLocaleDateString()}</span>
-        <button class="sidebar-delete-history-btn" onclick="event.stopPropagation(); deletePromptHistory('${item.id}')">×</button>
-      </div>
-      <div class="sidebar-history-content">
-        <div class="sidebar-history-preview">
-          <strong>Original:</strong> ${item.original_prompt.substring(0, 60)}${item.original_prompt.length > 60 ? '...' : ''}
-        </div>
-        <div class="sidebar-history-preview">
-          <strong>Optimized:</strong> ${item.optimized_prompt.substring(0, 60)}${item.optimized_prompt.length > 60 ? '...' : ''}
-        </div>
-      </div>
-    </div>
-  `).join('');
-
-  historyContainer.innerHTML = historyHTML;
-}
-
-function loadHistoryItem(historyId) {
-  // This function can be used to load a specific history item into the main area
-  // For now, we'll just show an alert with the ID
-  console.log("Loading history item:", historyId);
-  // You can implement this to show the full prompt in the main area
-}
-
-async function deletePromptHistory(historyId) {
-  if (!confirm("Are you sure you want to delete this prompt history entry?")) {
-    return;
-  }
-
-  try {
-    const response = await makeAuthenticatedRequest(`${API_BASE}/prompt-history/${historyId}`, {
-      method: "DELETE"
-    });
-
-    if (response.ok) {
-      loadPromptHistory(); // Reload history
-    } else {
-      alert("Failed to delete prompt history entry");
+    to {
+      transform: translateX(0);
+      opacity: 1;
     }
-  } catch (error) {
-    console.error("Error deleting prompt history:", error);
-    alert("Error deleting prompt history entry");
-  }
-}
-
-// ===== Copy Button Functionality =====
-function initializeCopyButton() {
-  const copyBtn = document.getElementById("copyBtn");
-  if (!copyBtn) return;
-
-  copyBtn.addEventListener("click", async function() {
-    const optimizedText = document.getElementById("optimizedText");
-    if (!optimizedText || !optimizedText.textContent.trim()) {
-      return;
-    }
-
-    const textToCopy = optimizedText.textContent.trim();
-    
-    try {
-      // Use the modern Clipboard API
-      await navigator.clipboard.writeText(textToCopy);
-      
-      // Show success feedback
-      showCopySuccess(copyBtn);
-    } catch (err) {
-      // Fallback for older browsers
-      try {
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        if (successful) {
-          showCopySuccess(copyBtn);
-        } else {
-          showCopyError(copyBtn);
-        }
-      } catch (fallbackErr) {
-        console.error("Copy failed:", fallbackErr);
-        showCopyError(copyBtn);
-      }
-    }
-  });
-}
-
-function showCopySuccess(copyBtn) {
-  const copyText = copyBtn.querySelector(".copy-text");
-  const originalText = copyText.textContent;
-  
-  // Update button appearance
-  copyBtn.classList.add("copied");
-  copyText.textContent = "Copied!";
-  
-  // Reset after 2 seconds
-  setTimeout(() => {
-    copyBtn.classList.remove("copied");
-    copyText.textContent = originalText;
-  }, 2000);
-}
-
-function showCopyError(copyBtn) {
-  const copyText = copyBtn.querySelector(".copy-text");
-  const originalText = copyText.textContent;
-  
-  // Show error state
-  copyText.textContent = "Failed";
-  copyBtn.style.background = "#ef4444";
-  copyBtn.style.borderColor = "#dc2626";
-  
-  // Reset after 2 seconds
-  setTimeout(() => {
-    copyText.textContent = originalText;
-    copyBtn.style.background = "";
-    copyBtn.style.borderColor = "";
-  }, 2000);
-}
-
-// Validate token on page load
-validateToken();
-
-// ===== Vertical Scrollbar =====
-function initializeVerticalScrollbar() {
-  const scrollbarThumb = document.querySelector('.scrollbar-thumb');
-  const scrollbarTrack = document.querySelector('.scrollbar-track');
-  const mainContent = document.querySelector('.main-content');
-  
-  if (!scrollbarThumb || !scrollbarTrack || !mainContent) return;
-  
-  let isDragging = false;
-  let startY = 0;
-  let startScrollTop = 0;
-  
-  // Update scrollbar position based on content scroll
-  function updateScrollbar() {
-    const scrollTop = mainContent.scrollTop;
-    const scrollHeight = mainContent.scrollHeight;
-    const clientHeight = mainContent.clientHeight;
-    
-    if (scrollHeight <= clientHeight) {
-      scrollbarThumb.style.display = 'none';
-      return;
-    }
-    
-    scrollbarThumb.style.display = 'block';
-    
-    const thumbHeight = (clientHeight / scrollHeight) * 100;
-    const thumbTop = (scrollTop / (scrollHeight - clientHeight)) * (100 - thumbHeight);
-    
-    scrollbarThumb.style.height = `${thumbHeight}%`;
-    scrollbarThumb.style.top = `${thumbTop}%`;
   }
   
-  // Handle mouse down on scrollbar thumb
-  scrollbarThumb.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    startY = e.clientY;
-    startScrollTop = mainContent.scrollTop;
-    e.preventDefault();
-  });
-  
-  // Handle mouse move
-  document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    
-    const deltaY = e.clientY - startY;
-    const scrollbarHeight = scrollbarTrack.offsetHeight;
-    const thumbHeight = scrollbarThumb.offsetHeight;
-    const maxScroll = scrollbarHeight - thumbHeight;
-    
-    const scrollRatio = deltaY / maxScroll;
-    const maxScrollTop = mainContent.scrollHeight - mainContent.clientHeight;
-    
-    mainContent.scrollTop = startScrollTop + (scrollRatio * maxScrollTop);
-  });
-  
-  // Handle mouse up
-  document.addEventListener('mouseup', () => {
-    isDragging = false;
-  });
-  
-  // Update scrollbar on content scroll
-  mainContent.addEventListener('scroll', updateScrollbar);
-  
-  // Initial update
-  updateScrollbar();
-}
-
-// Make functions globally available for onclick handlers
-window.loadHistoryItem = loadHistoryItem;
-window.deletePromptHistory = deletePromptHistory;
+  @keyframes slideOut {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+`;
+document.head.appendChild(style);
