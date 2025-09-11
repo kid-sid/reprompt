@@ -618,12 +618,6 @@ function addUserMessage(text) {
     <div class="message-content">
       <div class="message-header">
         <span class="message-role">You</span>
-        <div class="message-actions">
-          <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message">
-            <span>📋</span>
-            <span>Copy</span>
-          </button>
-        </div>
       </div>
       <div class="message-text">${escapeHtml(text)}</div>
     </div>
@@ -641,18 +635,19 @@ function addAssistantMessage(text, mode, model, tokens) {
     <div class="message-content">
       <div class="message-header">
         <span class="message-role">Assistant</span>
-        <div class="message-actions">
-          <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message">
-            <span>📋</span>
-            <span>Copy</span>
-          </button>
-          <button class="message-action-btn" onclick="likeMessage(this)" title="Like message">
-            <span>👍</span>
-            <span>Like</span>
-          </button>
-        </div>
       </div>
-      <div class="message-text">${escapeHtml(text)}</div>
+      <div class="message-text">
+        <pre><code>${escapeHtml(text)}</code></pre>
+      </div>
+      <div class="message-actions bottom-actions">
+        <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message">
+          <span>📋</span>
+          <span>Copy</span>
+        </button>
+        <button class="message-action-btn like-btn" onclick="likeMessage(this)" title="Like message">
+          <span>❤️</span>
+        </button>
+      </div>
       <div class="message-meta">
         <div class="meta-item">
           <span>Mode:</span>
@@ -889,7 +884,6 @@ function copyMessageText(button) {
       copyText.textContent = originalText;
     }, 2000);
     
-    showToast("Message copied to clipboard", "success", 2000);
   }).catch(err => {
     console.error("Copy failed:", err);
     showToast("Failed to copy message", "error");
@@ -897,15 +891,15 @@ function copyMessageText(button) {
 }
 
 function likeMessage(button) {
-  const copyText = button.querySelector("span:last-child");
-  const originalText = copyText.textContent;
+  const heartIcon = button.querySelector("span");
+  const originalIcon = heartIcon.textContent;
   
-  button.classList.add("copied");
-  copyText.textContent = "Liked!";
+  button.classList.add("liked");
+  heartIcon.textContent = "💖"; // Filled heart when liked
   
   setTimeout(() => {
-    button.classList.remove("copied");
-    copyText.textContent = originalText;
+    button.classList.remove("liked");
+    heartIcon.textContent = originalIcon;
   }, 2000);
   
   showToast("Thanks for the feedback!", "success", 2000);
