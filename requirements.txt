@@ -11,3 +11,5 @@ openai
 mistral_common
 transformers
 torch
+supabase
+pylint
