@@ -52,15 +52,15 @@ async def root():
     """Redirect to auth page by default"""
     return FileResponse("static/auth.html")
 
-@app.get("/frontend")
-async def frontend():
-    """Serve the frontend application"""
-    return FileResponse("static/chatbot.html")
-
 @app.get("/auth")
 async def auth_page():
     """Serve the authentication page"""
     return FileResponse(os.path.join("static", "auth.html"))
+
+@app.get("/chatbot")
+async def chatbot_page():
+    """Serve the chatbot page"""
+    return FileResponse(os.path.join("static", "chatbot.html"))
 
 @app.get("/health")
 async def health_check():
