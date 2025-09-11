@@ -36,7 +36,7 @@
       --radius-xl: 1rem;
     }
     
-    body {
+    body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
       min-height: 100vh;
@@ -442,8 +442,8 @@
     }
     
     .message-avatar {
-      width: 32px;
-      height: 32px;
+        width: 32px;
+        height: 32px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -465,6 +465,7 @@
     .message-content {
       flex: 1;
       min-width: 0;
+      position: relative;
     }
     
     .message-header {
@@ -481,6 +482,32 @@
     }
     
     .message-actions {
+      display: flex;
+      gap: 0.5rem;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    
+    .message:hover .message-actions {
+      opacity: 1;
+    }
+    
+    .message-actions:hover {
+      opacity: 1 !important;
+    }
+    
+    .top-actions {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+    }
+    
+    .bottom-actions {
+      position: absolute;
+      bottom: -0.5rem;
+      right: 0.5rem;
+      z-index: 10;
+      opacity: 1 !important;
       display: flex;
       gap: 0.5rem;
     }
@@ -509,6 +536,27 @@
       border-color: var(--accent-color);
     }
     
+    .like-btn {
+      padding: 0.25rem;
+      min-width: 1.5rem;
+      justify-content: center;
+    }
+    
+    .like-btn:hover {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: #ef4444;
+    }
+    
+    .like-btn.liked {
+      background: #ef4444;
+      border-color: #ef4444;
+      transform: scale(1.1);
+    }
+    
+    .like-btn span {
+      font-size: 0.875rem;
+    }
+    
     .message-text {
       background: var(--bg-secondary);
       padding: 1rem;
@@ -516,12 +564,35 @@
       border: 1px solid var(--border-color);
       line-height: 1.6;
       word-wrap: break-word;
+      position: relative;
     }
     
     .user-message .message-text {
       background: var(--primary-color);
       color: white;
       border-color: var(--primary-color);
+    }
+    
+    .message-text pre {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      font-family: inherit;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    
+    .message-text code {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      background: transparent;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      color: inherit;
     }
     
     .message-meta {
@@ -818,6 +889,217 @@
       from { opacity: 0; }
       to { opacity: 1; }
     }
+    
+    /* ===== MODAL STYLES ===== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .modal-content {
+      background: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from { 
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+      }
+      to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      padding: 0.25rem;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s ease;
+    }
+    
+    .modal-close:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+    
+    .modal-body {
+      padding: 1.5rem;
+    }
+    
+    .modal-footer {
+      display: flex;
+      gap: 1rem;
+      padding: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      justify-content: flex-end;
+    }
+    
+    /* ===== SETTINGS STYLES ===== */
+    .settings-section {
+      margin-bottom: 2rem;
+    }
+    
+    .settings-section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .settings-section h3 {
+      margin: 0 0 1rem 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    
+    .settings-option {
+      margin-bottom: 1rem;
+    }
+    
+    .settings-option:last-child {
+      margin-bottom: 0;
+    }
+    
+    .settings-option label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    
+    .settings-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+    }
+    
+    .settings-input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* ===== RADIO BUTTON STYLES ===== */
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 0.5rem;
+    }
+    
+    .radio-option:hover {
+      background: var(--bg-secondary);
+      border-color: var(--border-hover);
+    }
+    
+    .radio-option input[type="radio"] {
+      display: none;
+    }
+    
+    .radio-custom {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border-color);
+      border-radius: 50%;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    
+    .radio-option input[type="radio"]:checked + .radio-custom {
+      border-color: var(--primary-color);
+      background: var(--primary-color);
+    }
+    
+    .radio-option input[type="radio"]:checked + .radio-custom::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 8px;
+      background: white;
+      border-radius: 50%;
+    }
+    
+    .radio-label {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    
+    /* ===== BUTTON STYLES ===== */
+    .btn-primary, .btn-secondary {
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-md);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+      font-size: 0.875rem;
+    }
+    
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+    
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--border-color);
+    }
   </style>
 </head>
 <body>
@@ -825,7 +1107,7 @@
     <!-- ===== LEFT SIDEBAR ===== -->
     <aside class="sidebar" id="sidebar" role="complementary" aria-label="Navigation sidebar">
       <!-- User Profile Section -->
-      <div class="sidebar-header">
+    <div class="sidebar-header">
         <div class="user-profile">
           <div class="user-avatar" id="userAvatar" aria-label="User avatar">
             <span id="userInitials">U</span>
@@ -844,18 +1126,18 @@
           <button class="new-chat-btn" id="newChatBtn" aria-label="Start new chat">
             <span>✨</span>
             <span>New Chat</span>
-          </button>
-        </div>
-        
+      </button>
+    </div>
+    
         <!-- Chat History Section -->
         <div class="chat-history-section">
           <div class="section-title">Recent Chats</div>
           <div class="chat-history-list" id="chatHistoryList" role="list" aria-label="Chat history">
             <!-- Chat history items will be populated here -->
           </div>
-        </div>
       </div>
-      
+    </div>
+    
       <!-- Sidebar Footer -->
       <div class="sidebar-footer">
         <button class="settings-btn" id="settingsBtn" aria-label="Open settings">
@@ -871,20 +1153,20 @@
       <header class="header" role="banner">
         <div class="header-left">
           <!-- Logo removed for clean UI -->
-        </div>
-        
+    </div>
+    
         <div class="header-right">
           <!-- Inference Mode Switch -->
           <div class="inference-mode-switch">
             <span class="mode-label">Mode:</span>
             <div class="mode-toggle" id="inferenceToggle" role="switch" aria-checked="false" aria-label="Toggle inference mode">
-            </div>
+      </div>
             <div class="mode-info" id="modeInfo">
               <span id="modeLabel">Lazy</span>
               <span id="modeDescription">(GPT-3.5)</span>
-            </div>
-          </div>
-          
+    </div>
+  </div>
+
           <!-- Logout Button -->
           <button class="logout-btn" id="logoutBtn" aria-label="Logout">
             <span>🚪</span>
@@ -894,7 +1176,7 @@
       </header>
       
       <!-- ===== CHAT CONTAINER ===== -->
-      <div class="chat-container">
+        <div class="chat-container">
         <!-- Chat Messages -->
         <div class="chat-messages" id="chatMessages" role="log" aria-label="Chat messages" aria-live="polite">
           <!-- Welcome Message -->
@@ -904,10 +1186,10 @@
               <p class="welcome-subtitle">
                 Start a new conversation by typing your prompt below.
               </p>
+              </div>
             </div>
           </div>
-        </div>
-        
+
         <!-- Scroll to Bottom Button -->
         <button class="scroll-to-bottom" id="scrollToBottom" aria-label="Scroll to bottom" title="Scroll to bottom">
           <span>⬇️</span>
@@ -917,26 +1199,75 @@
       <!-- ===== INPUT AREA ===== -->
       <div class="input-container">
         <form class="input-form" id="promptForm" role="form" aria-label="Chat input form">
-          <div class="input-wrapper">
-            <textarea 
+              <div class="input-wrapper">
+                <textarea
               class="prompt-input" 
               id="promptInput" 
               placeholder="Ask me anything... (Press Enter to send, Shift+Enter for new line)"
               rows="1"
               aria-label="Message input"
               aria-describedby="input-help"
-            ></textarea>
+                ></textarea>
             <div id="input-help" class="sr-only">
               Type your message and press Enter to send, or Shift+Enter for a new line
-            </div>
+              </div>
           </div>
           <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message">
             <span>📤</span>
             <span>Send</span>
           </button>
-        </form>
-      </div>
+            </form>
+          </div>
     </main>
+        </div>
+  
+  <!-- ===== SETTINGS MODAL ===== -->
+  <div id="settingsModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close" id="closeSettings" aria-label="Close settings">
+          <span>✕</span>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Theme Section -->
+        <div class="settings-section">
+          <h3>Theme</h3>
+          <div class="settings-option">
+            <label class="radio-option">
+              <input type="radio" name="theme" value="light" id="themeLight">
+              <span class="radio-custom"></span>
+              <span class="radio-label">Light Mode</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="theme" value="dark" id="themeDark">
+              <span class="radio-custom"></span>
+              <span class="radio-label">Dark Mode</span>
+            </label>
+    </div>
+  </div>
+
+        <!-- Personalization Section -->
+        <div class="settings-section">
+          <h3>Personalization</h3>
+          <div class="settings-option">
+            <label for="userName">Your Name</label>
+            <input type="text" id="userName" placeholder="Enter your name" class="settings-input">
+          </div>
+          <div class="settings-option">
+            <label for="assistantName">Assistant Name</label>
+            <input type="text" id="assistantName" placeholder="Enter assistant name" class="settings-input">
+          </div>
+    </div>
+  </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" id="resetSettings">Reset to Default</button>
+        <button class="btn-primary" id="saveSettings">Save Settings</button>
+      </div>
+    </div>
   </div>
   
   <!-- ===== SCRIPTS ===== -->
