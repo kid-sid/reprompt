@@ -12,10 +12,20 @@ let refreshTimer = null;
 let sessionWarningTimer = null;
 
 // ===== AUTHENTICATION CHECK =====
-if (!token || !userEmail) {
-  console.log("No authentication found, redirecting to login...");
-  window.location.href = ROUTES.AUTH;
-  throw new Error("Not authenticated");
+function checkAuthentication() {
+  console.log("Checking authentication...");
+  console.log("Token:", token ? "exists" : "missing");
+  console.log("User email:", userEmail ? "exists" : "missing");
+  console.log("Current path:", window.location.pathname);
+  
+  if (!token || !userEmail) {
+    console.log("No authentication found, redirecting to login...");
+    console.log("Redirecting to:", ROUTES.AUTH);
+    window.location.href = ROUTES.AUTH;
+    return false;
+  }
+  console.log("Authentication check passed");
+  return true;
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -253,6 +263,26 @@ function redirectToLogin() {
   window.location.href = ROUTES.AUTH;
 }
 
+// ===== USER PROFILE =====
+async function getUserProfile() {
+  try {
+    const response = await makeAuthenticatedRequest(`${API_BASE}/auth${ENDPOINTS.PROFILE}`, {
+      method: "GET"
+    });
+    
+    if (response.ok) {
+      const profile = await response.json();
+      return profile;
+    } else {
+      console.error("Failed to get user profile:", response.status);
+      return null;
+    }
+  } catch (error) {
+    console.error("Error getting user profile:", error);
+    return null;
+  }
+}
+
 // ===== API COMMUNICATION =====
 async function makeAuthenticatedRequest(url, options = {}) {
   const defaultOptions = {
@@ -297,6 +327,11 @@ async function makeAuthenticatedRequest(url, options = {}) {
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     console.log("Initializing chatbot...");
+    
+    // Check authentication first
+    if (!checkAuthentication()) {
+      return; // Exit if not authenticated
+    }
     
     // Validate authentication
     await validateToken();
@@ -563,7 +598,8 @@ async function handleSubmit(event) {
         data.output || "No optimization available.",
         data.inference_type || currentInferenceMode,
         data.model_used || (currentInferenceMode === "pro" ? "GPT-4" : "GPT-3.5"),
-        data.tokens_used || "N/A"
+        data.tokens_used || "N/A",
+        data.prompt_history_id
       );
       
       // Reload chat history
@@ -632,27 +668,37 @@ function addUserMessage(text) {
   scrollToBottom();
 }
 
-function addAssistantMessage(text, mode, model, tokens) {
+function addAssistantMessage(text, mode, model, tokens, promptHistoryId = null) {
   const chatMessages = document.getElementById("chatMessages");
   const messageDiv = document.createElement("div");
   messageDiv.className = "message assistant-message";
+  
+  // Set prompt history ID as data attribute
+  if (promptHistoryId) {
+    messageDiv.dataset.promptHistoryId = promptHistoryId;
+  }
+  
   messageDiv.innerHTML = `
     <div class="message-avatar">🤖</div>
     <div class="message-content">
       <div class="message-header">
         <span class="message-role">Assistant</span>
-        <div class="message-actions">
+        <div class="message-actions top-actions">
           <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message">
             <span>📋</span>
             <span>Copy</span>
           </button>
-          <button class="message-action-btn" onclick="likeMessage(this)" title="Like message">
-            <span>👍</span>
-            <span>Like</span>
-          </button>
         </div>
       </div>
       <div class="message-text">${escapeHtml(text)}</div>
+      <div class="message-actions bottom-actions">
+        <button class="message-action-btn like-btn" onclick="likeMessage(this)" title="Like message">
+          <span>❤️</span>
+        </button>
+        <button class="message-action-btn dislike-btn" onclick="dislikeMessage(this)" title="Dislike message">
+          <span>👎</span>
+        </button>
+      </div>
       <div class="message-meta">
         <div class="meta-item">
           <span>Mode:</span>
@@ -786,7 +832,8 @@ async function loadChatHistoryItem(historyId) {
         data.optimized_prompt,
         data.inference_type,
         data.model_used,
-        data.tokens_used
+        data.tokens_used,
+        data.id
       );
       
       // Set input to original prompt
@@ -896,19 +943,123 @@ function copyMessageText(button) {
   });
 }
 
-function likeMessage(button) {
-  const copyText = button.querySelector("span:last-child");
-  const originalText = copyText.textContent;
+// Global feedback state
+let feedbackState = new Map(); // prompt_history_id -> feedback_type
+
+async function likeMessage(button) {
+  const messageElement = button.closest('.message');
+  const promptHistoryId = messageElement.dataset.promptHistoryId;
   
-  button.classList.add("copied");
-  copyText.textContent = "Liked!";
+  if (!promptHistoryId) {
+    console.error("Missing prompt history ID for feedback");
+    showToast("Unable to submit feedback - missing prompt ID", "error");
+    return;
+  }
   
-  setTimeout(() => {
-    button.classList.remove("copied");
-    copyText.textContent = originalText;
-  }, 2000);
+  const heartIcon = button.querySelector("span");
+  const originalIcon = heartIcon.textContent;
   
-  showToast("Thanks for the feedback!", "success", 2000);
+  try {
+    console.log("Submitting like feedback for prompt:", promptHistoryId);
+    
+    // Send feedback to backend
+    const result = await submitFeedback(promptHistoryId, 'like');
+    console.log("Feedback submission result:", result);
+    
+    // Update UI
+    button.classList.add("liked");
+    heartIcon.textContent = "💖";
+    feedbackState.set(promptHistoryId, 'like');
+    
+    // Update dislike button if it exists
+    const dislikeBtn = messageElement.querySelector('.dislike-btn');
+    if (dislikeBtn) {
+      dislikeBtn.classList.remove("disliked");
+      dislikeBtn.querySelector("span").textContent = "👎";
+    }
+    
+    showToast("Thanks for the feedback!", "success", 2000);
+    
+    setTimeout(() => {
+      button.classList.remove("liked");
+      heartIcon.textContent = originalIcon;
+    }, 2000);
+    
+  } catch (error) {
+    console.error("Failed to submit like feedback:", error);
+    showToast(`Failed to submit feedback: ${error.message}`, "error");
+  }
+}
+
+async function dislikeMessage(button) {
+  const messageElement = button.closest('.message');
+  const promptHistoryId = messageElement.dataset.promptHistoryId;
+  
+  if (!promptHistoryId) {
+    console.error("Missing prompt history ID for feedback");
+    showToast("Unable to submit feedback - missing prompt ID", "error");
+    return;
+  }
+  
+  const dislikeIcon = button.querySelector("span");
+  const originalIcon = dislikeIcon.textContent;
+  
+  try {
+    console.log("Submitting dislike feedback for prompt:", promptHistoryId);
+    
+    // Send feedback to backend
+    const result = await submitFeedback(promptHistoryId, 'dislike');
+    console.log("Feedback submission result:", result);
+    
+    // Update UI
+    button.classList.add("disliked");
+    dislikeIcon.textContent = "👎";
+    feedbackState.set(promptHistoryId, 'dislike');
+    
+    // Update like button if it exists
+    const likeBtn = messageElement.querySelector('.like-btn');
+    if (likeBtn) {
+      likeBtn.classList.remove("liked");
+      likeBtn.querySelector("span").textContent = "❤️";
+    }
+    
+    showToast("Thanks for the feedback!", "success", 2000);
+    
+    setTimeout(() => {
+      button.classList.remove("disliked");
+      dislikeIcon.textContent = originalIcon;
+    }, 2000);
+    
+  } catch (error) {
+    console.error("Failed to submit dislike feedback:", error);
+    showToast(`Failed to submit feedback: ${error.message}`, "error");
+  }
+}
+
+async function submitFeedback(promptHistoryId, feedbackType) {
+  console.log("Submitting feedback:", { promptHistoryId, feedbackType });
+  
+  const requestBody = {
+    prompt_history_id: promptHistoryId,
+    feedback_type: feedbackType
+  };
+  
+  console.log("Sending feedback request:", requestBody);
+  console.log("API URL:", `${API_BASE}${ENDPOINTS.FEEDBACK}`);
+  
+  const response = await makeAuthenticatedRequest(`${API_BASE}${ENDPOINTS.FEEDBACK}`, {
+    method: 'POST',
+    body: JSON.stringify(requestBody)
+  });
+  
+  console.log("Feedback response status:", response.status);
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to submit feedback');
+  }
+  
+  return await response.json();
 }
 
 // ===== TOKEN VALIDATION =====
@@ -931,6 +1082,7 @@ async function validateToken() {
 // ===== GLOBAL FUNCTIONS =====
 window.copyMessageText = copyMessageText;
 window.likeMessage = likeMessage;
+window.dislikeMessage = dislikeMessage;
 window.loadChatHistoryItem = loadChatHistoryItem;
 
 // ===== CSS ANIMATIONS =====
