@@ -16,7 +16,7 @@ async function handleSignup(event) {
   }
 
   try {
-    const response = await fetch(`${API_BASE}${ENDPOINTS.REGISTER}`, {
+    const response = await fetch(`${API_BASE}/auth${ENDPOINTS.REGISTER}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, confirm_password: confirmPassword }),
@@ -48,7 +48,7 @@ async function handleLogin(event) {
   const messageDiv = document.getElementById("loginMessage");
 
   try {
-    const response = await fetch(`${API_BASE}${ENDPOINTS.LOGIN}`, {
+    const response = await fetch(`${API_BASE}/auth${ENDPOINTS.LOGIN}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -65,8 +65,11 @@ async function handleLogin(event) {
 
       showMessage(messageDiv, "✅ Login successful! Redirecting...", "success");
       
+      console.log("Login successful, redirecting to:", ROUTES.CHATBOT);
+      
       // Redirect to chatbot page after a short delay
       setTimeout(() => {
+        console.log("Executing redirect to:", ROUTES.CHATBOT);
         window.location.href = ROUTES.CHATBOT;
       }, 1000);
     } else {
@@ -84,7 +87,7 @@ async function handleLogout() {
   
   try {
     if (refreshToken) {
-      await fetch(`${API_BASE}${ENDPOINTS.LOGOUT}`, {
+      await fetch(`${API_BASE}/auth${ENDPOINTS.LOGOUT}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),
@@ -132,12 +135,42 @@ function clearMessage(element) {
 }
 
 // ===== Attach listeners =====
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  console.log("Auth page loaded");
+  console.log("Current path:", window.location.pathname);
+  
   // Check if already logged in
   const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+  console.log("Token found:", token ? "yes" : "no");
+  
   if (token && window.location.pathname === "/auth") {
-    window.location.href = ROUTES.CHATBOT;
-    return;
+    console.log("Token exists and on auth page, validating...");
+    // Validate token before redirecting
+    try {
+      const response = await fetch(`${API_BASE}/auth${ENDPOINTS.VALIDATE}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      
+      if (response.ok) {
+        window.location.href = ROUTES.CHATBOT;
+        return;
+      } else {
+        // Token is invalid, clear it
+        localStorage.removeItem(STORAGE_KEYS.TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+      }
+    } catch (error) {
+      console.error("Token validation error:", error);
+      // Clear invalid tokens
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+    }
   }
 
   // Attach form listeners

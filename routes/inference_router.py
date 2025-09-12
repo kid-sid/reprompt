@@ -1,11 +1,17 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from schemas.inference_schema import InferenceRequest, InferenceResponse, InferenceType
+from schemas.prompt_history_schema import PromptHistoryCreate, InferenceType as HistoryInferenceType
 from models.lazy_inference import optimize_prompt as lazy_optimize_prompt
 from models.pro_inference import optimize_prompt as pro_optimize_prompt
 from services.redis import RedisService
+from services.prompt_history_service import prompt_history_service
+from services.auth_service import auth_service
+from schemas.auth_schema import UserProfile
 from config import settings
 import logging
 import hashlib
+import time
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -13,8 +19,33 @@ logger = logging.getLogger(__name__)
 # Initialize Redis service
 redis_service = RedisService()
 
+# Security scheme
+security = HTTPBearer()
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserProfile:
+    """Get current authenticated user"""
+    try:
+        user = await auth_service.get_current_user(credentials.credentials)
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user
+    except Exception as e:
+        logger.error(f"Authentication failed: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
 @router.post("/optimize-prompt", response_model=InferenceResponse)
-async def optimize_prompt_endpoint(request: InferenceRequest):
+async def optimize_prompt_endpoint(
+    request: InferenceRequest,
+    current_user: UserProfile = Depends(get_current_user)
+):
     """
     Optimize a user prompt using AI to make it more efficient and effective.
     
@@ -48,29 +79,53 @@ async def optimize_prompt_endpoint(request: InferenceRequest):
     """
 
     try:
-        logger.info(f"Received {request.inference_type} prompt optimization request: {request.prompt[:50]}...")
+        start_time = time.time()
+        logger.info(f"Received {request.inference_type} prompt optimization request from user {current_user.id}: {request.prompt[:50]}...")
         
         # Check cache first
         cached_result = redis_service.get_cached_optimization(request.prompt, request.inference_type.value)
         if cached_result:
             logger.info("Returning cached result")
+            
+            # Save to history even for cached results
+            prompt_history_id = None
+            try:
+                history_data = PromptHistoryCreate(
+                    original_prompt=request.prompt,
+                    optimized_prompt=cached_result["optimized_prompt"],
+                    inference_type=HistoryInferenceType(request.inference_type.value),
+                    model_used=cached_result["model_used"],
+                    tokens_used=cached_result["tokens_used"],
+                    processing_time_ms=int((time.time() - start_time) * 1000)
+                )
+                history_response = await prompt_history_service.create_prompt_history(
+                    user_id=current_user.id,
+                    prompt_data=history_data
+                )
+                prompt_history_id = history_response.id
+            except Exception as e:
+                logger.warning(f"Failed to save cached result to history: {e}")
+            
             return InferenceResponse(
                 output=cached_result["optimized_prompt"],
                 tokens_used=cached_result["tokens_used"],
                 inference_type=request.inference_type.value,
                 model_used=cached_result["model_used"],
-                cached=True
+                cached=True,
+                prompt_history_id=prompt_history_id
             )
         
         # Route to appropriate inference based on type
         if request.inference_type == InferenceType.LAZY:
-            optimized_prompt = lazy_optimize_prompt(request.prompt)
+            optimized_prompt, tokens_used = lazy_optimize_prompt(request.prompt)
             model_used = settings.LAZY_MODEL
         elif request.inference_type == InferenceType.PRO:
-            optimized_prompt = pro_optimize_prompt(request.prompt)
+            optimized_prompt, tokens_used = pro_optimize_prompt(request.prompt)
             model_used = settings.PRO_MODEL
         else:
             raise HTTPException(status_code=400, detail="Invalid inference type")
+
+        processing_time_ms = int((time.time() - start_time) * 1000)
 
         # Cache the result
         redis_service.cache_optimized_prompt(
@@ -78,15 +133,37 @@ async def optimize_prompt_endpoint(request: InferenceRequest):
             optimized_prompt=optimized_prompt,
             inference_type=request.inference_type.value,
             model_used=model_used,
-            tokens_used=0  # You can implement token counting if needed
+            tokens_used=tokens_used
         )
+
+        # Save to prompt history
+        prompt_history_id = None
+        try:
+            history_data = PromptHistoryCreate(
+                original_prompt=request.prompt,
+                optimized_prompt=optimized_prompt,
+                inference_type=HistoryInferenceType(request.inference_type.value),
+                model_used=model_used,
+                tokens_used=tokens_used,
+                processing_time_ms=processing_time_ms
+            )
+            history_response = await prompt_history_service.create_prompt_history(
+                user_id=current_user.id,
+                prompt_data=history_data
+            )
+            prompt_history_id = history_response.id
+            logger.info(f"Saved prompt history for user {current_user.id}")
+        except Exception as e:
+            logger.error(f"Failed to save prompt history: {e}")
+            # Don't fail the request if history saving fails
 
         return InferenceResponse(
             output=optimized_prompt,
-            tokens_used=0,  # You can implement token counting if needed
+            tokens_used=tokens_used,
             inference_type=request.inference_type.value,
             model_used=model_used,
-            cached=False
+            cached=False,
+            prompt_history_id=prompt_history_id
         )
     
     except Exception as e:
