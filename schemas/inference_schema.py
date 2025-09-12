@@ -17,3 +17,4 @@ class InferenceResponse(BaseModel):
     inference_type: str = Field(..., description="The inference type used (lazy/pro)")
     model_used: str = Field(..., description="The model used for optimization")
     cached: bool = Field(False, description="Whether the result was served from cache")
+    prompt_history_id: Optional[str] = Field(None, description="ID of the prompt history entry")
