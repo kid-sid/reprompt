@@ -88,6 +88,7 @@ async def optimize_prompt_endpoint(
             logger.info("Returning cached result")
             
             # Save to history even for cached results
+            prompt_history_id = None
             try:
                 history_data = PromptHistoryCreate(
                     original_prompt=request.prompt,
@@ -97,10 +98,11 @@ async def optimize_prompt_endpoint(
                     tokens_used=cached_result["tokens_used"],
                     processing_time_ms=int((time.time() - start_time) * 1000)
                 )
-                await prompt_history_service.create_prompt_history(
+                history_response = await prompt_history_service.create_prompt_history(
                     user_id=current_user.id,
                     prompt_data=history_data
                 )
+                prompt_history_id = history_response.id
             except Exception as e:
                 logger.warning(f"Failed to save cached result to history: {e}")
             
@@ -109,7 +111,8 @@ async def optimize_prompt_endpoint(
                 tokens_used=cached_result["tokens_used"],
                 inference_type=request.inference_type.value,
                 model_used=cached_result["model_used"],
-                cached=True
+                cached=True,
+                prompt_history_id=prompt_history_id
             )
         
         # Route to appropriate inference based on type
@@ -134,6 +137,7 @@ async def optimize_prompt_endpoint(
         )
 
         # Save to prompt history
+        prompt_history_id = None
         try:
             history_data = PromptHistoryCreate(
                 original_prompt=request.prompt,
@@ -143,10 +147,11 @@ async def optimize_prompt_endpoint(
                 tokens_used=tokens_used,
                 processing_time_ms=processing_time_ms
             )
-            await prompt_history_service.create_prompt_history(
+            history_response = await prompt_history_service.create_prompt_history(
                 user_id=current_user.id,
                 prompt_data=history_data
             )
+            prompt_history_id = history_response.id
             logger.info(f"Saved prompt history for user {current_user.id}")
         except Exception as e:
             logger.error(f"Failed to save prompt history: {e}")
@@ -157,7 +162,8 @@ async def optimize_prompt_endpoint(
             tokens_used=tokens_used,
             inference_type=request.inference_type.value,
             model_used=model_used,
-            cached=False
+            cached=False,
+            prompt_history_id=prompt_history_id
         )
     
     except Exception as e:
