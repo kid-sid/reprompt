@@ -8,7 +8,9 @@ export const ENDPOINTS = {
   VALIDATE: "/validate",
   REFRESH: "/refresh",
   LOGOUT: "/logout",
-  CHAT: "/optimize-prompt"
+  CHAT: "/optimize-prompt",
+  FEEDBACK: "/feedback",
+  FEEDBACK_STATS: "/feedback/stats"
 };
 
 // Storage keys (to avoid hardcoding everywhere)
@@ -20,7 +22,7 @@ export const STORAGE_KEYS = {
 
 // Redirects
 export const ROUTES = {
-  CHATBOT: "/frontend",
+  CHATBOT: "/chatbot",
   AUTH: "/auth",
   LOGIN: "/auth"
 };
