@@ -7,6 +7,9 @@ from routes.auth_router import router as auth_router
 from routes.prompt_history_router import router as prompt_history_router
 import logging
 import os
+from config import settings
+from supabase import create_client, Client
+from routes.feedback_router import router as feedback_router
 
 # Configure logging
 logging.basicConfig(
@@ -16,6 +19,11 @@ logging.basicConfig(
 
 # Create logger for this module
 logger = logging.getLogger(__name__)
+
+# Supabase client
+def get_supabase_client() -> Client:
+    """Get Supabase client"""
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
 app = FastAPI(
     title="Reprompt Chatbot API",
@@ -45,6 +53,9 @@ app.include_router(auth_router, prefix="/api/v1", tags=["authentication"])
 logger.info("Including prompt history router...")
 app.include_router(prompt_history_router, prefix="/api/v1", tags=["prompt-history"])
 
+logger.info("Including feedback router...")
+app.include_router(feedback_router, prefix="/api/v1", tags=["feedback"])
+
 logger.info("All routers included successfully")
 
 @app.get("/")
@@ -52,15 +63,15 @@ async def root():
     """Redirect to auth page by default"""
     return FileResponse("static/auth.html")
 
-@app.get("/frontend")
-async def frontend():
-    """Serve the frontend application"""
+@app.get("/chatbot")
+async def chatbot():
+    """Serve the chatbot application"""
     return FileResponse("static/chatbot.html")
 
 @app.get("/auth")
 async def auth_page():
     """Serve the authentication page"""
-    return FileResponse(os.path.join("static", "auth.html"))
+    return FileResponse("static/auth.html")
 
 @app.get("/health")
 async def health_check():
