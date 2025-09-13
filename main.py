@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from routes.inference_router import router as inference_router
 from routes.auth_router import router as auth_router
+from routes.prompt_history_router import router as prompt_history_router
 import logging
 import os
 
@@ -40,6 +41,9 @@ app.include_router(inference_router, prefix="/api/v1", tags=["inference"])
 
 logger.info("Including auth router...")
 app.include_router(auth_router, prefix="/api/v1", tags=["authentication"])
+
+logger.info("Including prompt history router...")
+app.include_router(prompt_history_router, prefix="/api/v1", tags=["prompt-history"])
 
 logger.info("All routers included successfully")
 

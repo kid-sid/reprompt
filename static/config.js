@@ -1,4 +1,4 @@
-export const API_BASE = "http://localhost:8001/api/v1/auth"; 
+export const API_BASE = "http://localhost:8001/api/v1"; 
 
 // Endpoints
 export const ENDPOINTS = {
@@ -6,6 +6,7 @@ export const ENDPOINTS = {
   LOGIN: "/login",
   PROFILE: "/profile",
   VALIDATE: "/validate",
+  REFRESH: "/refresh",
   LOGOUT: "/logout",
   CHAT: "/optimize-prompt"
 };
