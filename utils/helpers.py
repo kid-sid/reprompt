@@ -6,60 +6,6 @@ import json
 # Configuration constants
 DEFAULT_PROMPT_MIN_LENGTH = 3
 DEFAULT_PROMPT_MAX_LENGTH = 10000  # 10KB
-DEFAULT_LOG_LEVEL = "INFO"
-
-def setup_logging(
-    level: str = DEFAULT_LOG_LEVEL, 
-    logger_name: str = None,
-    force_global: bool = False
-) -> logging.Logger:
-    """
-    Setup logging configuration.
-    
-    Args:
-        level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        logger_name: Name for the logger instance
-        force_global: Whether to force global logging configuration
-    
-    Returns:
-        Configured logger instance
-    """
-    try:
-        # Validate log level
-        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-        if level.upper() not in valid_levels:
-            level = DEFAULT_LOG_LEVEL
-            logging.warning(f"Invalid log level '{level}', using '{DEFAULT_LOG_LEVEL}'")
-        
-        # Create logger
-        logger_name = logger_name or __name__
-        logger = logging.getLogger(logger_name)
-        
-        # Only configure if no handlers exist or if forcing global config
-        if force_global or not logger.handlers:
-            # Create formatter
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
-            
-            # Create console handler
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            console_handler.setLevel(getattr(logging, level.upper()))
-            
-            # Add handler to logger
-            logger.addHandler(console_handler)
-            logger.setLevel(getattr(logging, level.upper()))
-            
-            # Prevent propagation to root logger to avoid duplicate logs
-            logger.propagate = False
-        
-        return logger
-        
-    except Exception as e:
-        # Fallback to basic logging if setup fails
-        logging.error(f"Failed to setup logging: {e}")
-        return logging.getLogger(__name__)
 
 def format_api_response(
     success: bool = True,
@@ -214,7 +160,6 @@ def sanitize_prompt(
         return sanitized
         
     except Exception:
-        # Return empty string if sanitization fails
         return ""
 
 def safe_json_loads(json_str: str, default: Any = None) -> Any:

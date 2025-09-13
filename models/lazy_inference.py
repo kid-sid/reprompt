@@ -1,10 +1,6 @@
-import os
-from dotenv import load_dotenv
 from config import settings
 from services.openai_service import openai_client
-
-# Load environment variables from .env file
-# load_dotenv()
+from utils.helpers import handle_openai_error, sanitize_prompt, validate_prompt
 
 def optimize_prompt(prompt: str) -> tuple[str, int]:
     """
@@ -21,6 +17,11 @@ def optimize_prompt(prompt: str) -> tuple[str, int]:
         raise Exception("OpenAI client is not configured. Please set your OPENAI_API_KEY environment variable.")
     
     try:
+        prompt = sanitize_prompt(prompt)
+        if not prompt.strip():
+            raise ValueError("Prompt can't be empty")
+        if not validate_prompt(prompt):
+            raise ValueError("Invalid prompt")
         completion = openai_client.chat.completions.create(
             model=settings.LAZY_MODEL,
             messages=[
@@ -46,8 +47,10 @@ Just give me the improved prompt:""",
         tokens_used = completion.usage.total_tokens if completion.usage else 0
         
         return optimized_prompt, tokens_used
+    except ValueError as e:
+        raise e
     except Exception as e:
-        raise Exception(f"Error optimizing prompt: {str(e)}")
+        raise handle_openai_error(e)
 
 # Interactive mode for direct execution
 if __name__ == "__main__":

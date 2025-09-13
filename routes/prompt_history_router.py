@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 import time
 from loguru import logger
-
+from utils.helpers import format_api_response
 from services.prompt_history_service import prompt_history_service
 from services.auth_service import auth_service
 from schemas.prompt_history_schema import (
@@ -254,11 +254,19 @@ async def prompt_history_health_check():
     """Health check for prompt history service"""
     try:
         health_status = await prompt_history_service.health_check()
-        return health_status
+        return format_api_response(
+            success=True,
+            data=health_status,
+            message="Prompt history service is healthy"
+        )
     except Exception as e:
         logger.error(f"Prompt history health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "service": "prompt_history",
-            "error": str(e)
-        }
+        return format_api_response(
+            success=False,
+            data={
+                "status": "unhealthy",
+                "service": "prompt_history",
+                "error": str(e)
+            },
+            message="Prompt history service health check failed"
+        )

@@ -28,6 +28,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from loguru import logger
 from datetime import datetime
+from utils.helpers import format_api_response
 from schemas.auth_schema import (
     UserRegisterRequest, UserRegisterResponse,
     UserLoginRequest, UserLoginResponse,
@@ -329,22 +330,6 @@ async def validate_token(current_user: UserProfile = Depends(get_current_user)):
 
 @router.get("/health", response_model=dict)
 async def auth_health_check():
-    """
-    Health check endpoint for authentication service.
-    
-    Provides a simple health check for the authentication service.
-    This endpoint does not require authentication and can be used
-    for monitoring and load balancer health checks.
-    
-    Returns:
-        dict: Health status containing:
-            - status (str): "healthy" if service is operational
-            - service (str): Service name ("authentication")
-            - timestamp (str): ISO format timestamp of the check
-    
-    Raises:
-        HTTPException: 503 if authentication service is not healthy
-    """
     try:
         # Test basic Supabase connection
         # This is a simple health check that doesn't require authentication

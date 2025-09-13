@@ -9,6 +9,7 @@ from services.prompt_history_service import prompt_history_service
 from services.auth_service import auth_service
 from schemas.auth_schema import UserProfile
 from config import settings
+from utils.helpers import handle_openai_error
 import logging
 import hashlib
 import time
@@ -166,18 +167,17 @@ async def optimize_prompt_endpoint(
             prompt_history_id=prompt_history_id
         )
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in {request.inference_type} prompt optimization: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise handle_openai_error(e)
 
 @router.get("/health")
 async def inference_health():
     """
     Health check for the inference service.
-    
     Provides a simple health check endpoint for the inference service.
-    This endpoint can be used for monitoring, load balancer health checks,
-    and service availability verification.
     
     Returns:
         dict: Health status containing:
@@ -185,11 +185,6 @@ async def inference_health():
     
     Raises:
         None: This endpoint does not raise exceptions
-        
-    Note:
-        This is a lightweight endpoint that does not perform deep health checks
-        of external services like OpenAI or Redis. For detailed service status,
-        use the /cache/stats endpoint.
     """
     
     return {"status": "inference service is healthy"}
