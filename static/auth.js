@@ -16,7 +16,7 @@ async function handleSignup(event) {
   }
 
   try {
-    const response = await fetch(`${API_BASE}${ENDPOINTS.REGISTER}`, {
+    const response = await fetch(`${API_BASE}/auth${ENDPOINTS.REGISTER}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, confirm_password: confirmPassword }),
@@ -48,7 +48,7 @@ async function handleLogin(event) {
   const messageDiv = document.getElementById("loginMessage");
 
   try {
-    const response = await fetch(`${API_BASE}${ENDPOINTS.LOGIN}`, {
+    const response = await fetch(`${API_BASE}/auth${ENDPOINTS.LOGIN}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -84,7 +84,7 @@ async function handleLogout() {
   
   try {
     if (refreshToken) {
-      await fetch(`${API_BASE}${ENDPOINTS.LOGOUT}`, {
+      await fetch(`${API_BASE}/auth${ENDPOINTS.LOGOUT}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),

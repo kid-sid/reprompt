@@ -6,7 +6,7 @@ from services.openai_service import openai_client
 # Load environment variables from .env file
 # load_dotenv()
 
-def optimize_prompt(prompt: str) -> str:
+def optimize_prompt(prompt: str) -> tuple[str, int]:
     """
     Optimize a user prompt using simple and efficient AI techniques.
     This lazy version uses straightforward optimization strategies.
@@ -15,7 +15,7 @@ def optimize_prompt(prompt: str) -> str:
         prompt (str): The original prompt to optimize
         
     Returns:
-        str: The optimized prompt
+        tuple[str, int]: The optimized prompt and tokens used
     """
     if openai_client is None:
         raise Exception("OpenAI client is not configured. Please set your OPENAI_API_KEY environment variable.")
@@ -41,7 +41,11 @@ Just give me the improved prompt:""",
             max_tokens=settings.LAZY_MAX_TOKENS,
             temperature=settings.LAZY_TEMPERATURE,
         )
-        return completion.choices[0].message.content
+        
+        optimized_prompt = completion.choices[0].message.content
+        tokens_used = completion.usage.total_tokens if completion.usage else 0
+        
+        return optimized_prompt, tokens_used
     except Exception as e:
         raise Exception(f"Error optimizing prompt: {str(e)}")
 
@@ -51,7 +55,8 @@ if __name__ == "__main__":
     prompt = input("Enter your prompt: ")
     
     try:
-        optimized_prompt = optimize_prompt(prompt)
+        optimized_prompt, tokens_used = optimize_prompt(prompt)
         print("Optimized prompt:", optimized_prompt)
+        print("Tokens used:", tokens_used)
     except Exception as e:
         print(f"Error: {e}")

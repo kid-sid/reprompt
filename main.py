@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from routes.inference_router import router as inference_router
 from routes.auth_router import router as auth_router
+from routes.prompt_history_router import router as prompt_history_router
 import logging
 import os
 
@@ -41,21 +42,25 @@ app.include_router(inference_router, prefix="/api/v1", tags=["inference"])
 logger.info("Including auth router...")
 app.include_router(auth_router, prefix="/api/v1", tags=["authentication"])
 
+logger.info("Including prompt history router...")
+app.include_router(prompt_history_router, prefix="/api/v1", tags=["prompt-history"])
+
 logger.info("All routers included successfully")
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Reprompt Chatbot API"}
-
-@app.get("/frontend")
-async def frontend():
-    """Serve the frontend application"""
-    return FileResponse("static/chatbot.html")
+    """Redirect to auth page by default"""
+    return FileResponse("static/auth.html")
 
 @app.get("/auth")
 async def auth_page():
     """Serve the authentication page"""
     return FileResponse(os.path.join("static", "auth.html"))
+
+@app.get("/chatbot")
+async def chatbot_page():
+    """Serve the chatbot page"""
+    return FileResponse(os.path.join("static", "chatbot.html"))
 
 @app.get("/health")
 async def health_check():
