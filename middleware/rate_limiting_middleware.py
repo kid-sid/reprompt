@@ -1,8 +1,5 @@
 """
-FastAPI Rate Limiting Middleware
-
-This middleware automatically applies rate limiting to all API endpoints
-using the centralized rate limiting service.
+This middleware automatically applies rate limiting to all API endpoints using the centralized rate limiting service.
 """
 
 import time
@@ -12,8 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 from loguru import logger
-
-from services.rate_limiting_service import rate_limiter, RateLimitExceeded
+from services.rate_limiter.rate_limiting_service import rate_limiter, RateLimitExceeded
 
 
 class RateLimitingMiddleware(BaseHTTPMiddleware):
