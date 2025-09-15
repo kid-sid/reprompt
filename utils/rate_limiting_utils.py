@@ -10,7 +10,7 @@ from fastapi import Request, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from loguru import logger
 
-from services.rate_limiting_service import rate_limiter, RateLimitExceeded
+from services.rate_limiter.rate_limiting_service import rate_limiter, RateLimitExceeded
 from services.auth_service import auth_service
 from schemas.auth_schema import UserProfile
 
