@@ -98,7 +98,7 @@ async def health_check():
 @app.get("/api/v1/rate-limit/status")
 async def rate_limit_status():
     """Get rate limiting service status and configuration"""
-    from services.rate_limiting_service import rate_limiter
+    from services.rate_limiter.rate_limiting_service import rate_limiter
     
     if not rate_limiter:
         return {
