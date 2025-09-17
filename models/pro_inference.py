@@ -1,6 +1,7 @@
 from config import settings
 from services.openai_service import openai_client
-from utils.helpers import handle_openai_error,sanitize_prompt, validate_prompt
+from utils.helpers import handle_openai_error, sanitize_prompt, validate_prompt
+from utils.prompt_loader import load_pro_prompt
 
 def optimize_prompt(prompt: str) -> tuple[str, int]:
     """
@@ -22,21 +23,15 @@ def optimize_prompt(prompt: str) -> tuple[str, int]:
             raise ValueError("Prompt can't be empty")
         if not validate_prompt(prompt):
             raise ValueError("Invalid prompt")
+        # Load the pro prompt from file
+        system_prompt = load_pro_prompt()
+        
         completion = openai_client.chat.completions.create(
             model=settings.PRO_MODEL,
             messages=[
                 {
                     "role": "system",
-                    "content": """You are an expert prompt engineer with deep knowledge of AI optimization techniques. 
-                    Your task is to transform user prompts using advanced strategies like:
-                    - Chain-of-thought reasoning
-                    - Few-shot learning patterns
-                    - Role-based prompting
-                    - Context window optimization
-                    - Output format specification
-                    - Constraint-based prompting
-                    
-                    Always maintain the original intent while significantly improving clarity, specificity, and effectiveness."""
+                    "content": system_prompt
                 },
                 {
                     "role": "user",
