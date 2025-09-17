@@ -10,6 +10,7 @@ from services.auth_service import auth_service
 from schemas.auth_schema import UserProfile
 from config import settings
 from utils.helpers import handle_openai_error
+from utils.rate_limiting_utils import get_user_rate_limit_status
 import logging
 import hashlib
 import time
@@ -342,3 +343,35 @@ async def clear_cache():
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
         raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
+
+@router.get("/rate-limit/status")
+async def get_inference_rate_limit_status(
+    current_user: UserProfile = Depends(get_current_user)
+):
+    """
+    Get rate limiting status for inference endpoints.
+    
+    Returns current rate limit usage and limits for the authenticated user
+    on inference endpoints.
+    
+    Returns:
+        dict: Rate limit status containing:
+            - tier (str): User's rate limit tier
+            - endpoint (str): Endpoint category
+            - counts (dict): Current usage counts
+            - limits (dict): Rate limit thresholds
+            - usage_percentages (dict): Usage as percentages
+    
+    Raises:
+        HTTPException: 401 if user is not authenticated
+    """
+    try:
+        status = get_user_rate_limit_status(current_user, "inference")
+        logger.info(f"Rate limit status retrieved for user {current_user.id}")
+        return status
+    except Exception as e:
+        logger.error(f"Failed to get rate limit status: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get rate limit status: {str(e)}"
+        )
