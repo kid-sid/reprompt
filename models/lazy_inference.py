@@ -1,6 +1,7 @@
 from config import settings
 from services.openai_service import openai_client
 from utils.helpers import handle_openai_error, sanitize_prompt, validate_prompt
+from utils.prompt_loader import load_lazy_prompt
 
 def optimize_prompt(prompt: str) -> tuple[str, int]:
     """
@@ -22,21 +23,19 @@ def optimize_prompt(prompt: str) -> tuple[str, int]:
             raise ValueError("Prompt can't be empty")
         if not validate_prompt(prompt):
             raise ValueError("Invalid prompt")
+        # Load the lazy prompt from file
+        system_prompt = load_lazy_prompt()
+        
         completion = openai_client.chat.completions.create(
             model=settings.LAZY_MODEL,
             messages=[
                 {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
                     "role": "user",
-                    "content": f"""Please rewrite this prompt to make it clearer and more effective:
-
-{prompt}
-
-Make it:
-- More specific and detailed
-- Easier to understand
-- More likely to get a good response
-
-Just give me the improved prompt:""",
+                    "content": f"Please rewrite this prompt to make it clearer and more effective:\n\n{prompt}",
                 },
             ],
             max_tokens=settings.LAZY_MAX_TOKENS,

@@ -10,6 +10,7 @@ import os
 from config import settings
 from supabase import create_client, Client
 from routes.feedback_router import router as feedback_router
+from middleware.rate_limiting_middleware import RateLimitingMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +39,23 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Add Rate Limiting middleware
+app.add_middleware(
+    RateLimitingMiddleware,
+    bypass_endpoints=[
+        "/health",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+        "/static"
+    ],
+    bypass_patterns=[
+        "/static/",
+        "/docs/",
+        "/redoc/"
+    ]
 )
 
 # Mount static files
@@ -77,7 +95,21 @@ async def auth_page():
 async def health_check():
     return {"status": "healthy"}
 
+@app.get("/api/v1/rate-limit/status")
+async def rate_limit_status():
+    """Get rate limiting service status and configuration"""
+    from services.rate_limiter.rate_limiting_service import rate_limiter
+    
+    if not rate_limiter:
+        return {
+            "status": "unavailable",
+            "message": "Rate limiting service not initialized"
+        }
+    
+    return rate_limiter.health_check()
+
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting FastAPI server...")
     uvicorn.run(app, host="0.0.0.0", port=8001, log_level="debug")
+    
