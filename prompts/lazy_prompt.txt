@@ -13,3 +13,5 @@ Guidelines:
 - Make instructions clear and actionable
 
 Always provide just the improved prompt without additional explanations.
+
+Switch to Pro for a more detailed and better response.
