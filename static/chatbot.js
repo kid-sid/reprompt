@@ -690,7 +690,7 @@ function addAssistantMessage(text, mode, model, tokens, promptHistoryId = null) 
           </button>
         </div>
       </div>
-      <div class="message-text">${escapeHtml(text)}</div>
+      <div class="message-text">${formatMessageText(text)}</div>
       <div class="message-actions bottom-actions">
         <button class="message-action-btn like-btn" onclick="likeMessage(this)" title="Like message">
           <span>❤️</span>
@@ -917,6 +917,31 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function formatMessageText(text) {
+  // First escape HTML to prevent XSS
+  const div = document.createElement('div');
+  div.textContent = text;
+  let escaped = div.innerHTML;
+  
+  // Format section headers to be bold
+  const sectionHeaders = [
+    'Goal:', 'Context:', 'Constraints:', 'Output format:', 'Requirements:',
+    'Instructions:', 'Steps:', 'Process:', 'Method:', 'Approach:',
+    'Examples:', 'Sample:', 'Template:', 'Format:', 'Structure:',
+    'Follow-up Questions:', 'Follow-up questions:', 'Follow up Questions:', 'Follow up questions:'
+  ];
+  
+  sectionHeaders.forEach(header => {
+    const regex = new RegExp(`(${header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    escaped = escaped.replace(regex, '<strong>$1</strong>');
+  });
+  
+  // Also format markdown-style bold text **text**
+  escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  return escaped;
 }
 
 function copyMessageText(button) {
