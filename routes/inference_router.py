@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+# TODO: Add Request import when implementing IP tracking
+# from starlette.requests import Request
 from schemas.inference_schema import InferenceRequest, InferenceResponse, InferenceType
 from schemas.prompt_history_schema import PromptHistoryCreate, InferenceType as HistoryInferenceType
 from models.lazy_inference import optimize_prompt as lazy_optimize_prompt
@@ -9,7 +11,7 @@ from services.prompt_history_service import prompt_history_service
 from services.auth_service import auth_service
 from schemas.auth_schema import UserProfile
 from config import settings
-from utils.helpers import handle_openai_error
+from utils.helpers import handle_openai_error, check_content_toxicity
 from utils.rate_limiting_utils import get_user_rate_limit_status
 import logging
 import hashlib
@@ -43,10 +45,16 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+# TODO: Uncomment when implementing IP address tracking
+# def get_request(request: Request) -> Request:
+#     """Dependency to inject Request object"""
+#     return request
+
 @router.post("/optimize-prompt", response_model=InferenceResponse)
 async def optimize_prompt_endpoint(
-    request: InferenceRequest,
+    inference_request: InferenceRequest,
     current_user: UserProfile = Depends(get_current_user)
+    # TODO: Add http_request: Request = Depends(get_request) when implementing IP tracking
 ):
     """
     Optimize a user prompt using AI to make it more efficient and effective.
@@ -82,10 +90,21 @@ async def optimize_prompt_endpoint(
 
     try:
         start_time = time.time()
-        logger.info(f"Received {request.inference_type} prompt optimization request from user {current_user.id}: {request.prompt[:50]}...")
+        logger.info(f"Received {inference_request.inference_type} prompt optimization request from user {current_user.id}: {inference_request.prompt[:50]}...")
+        
+        # TODO: Add IP address and user agent tracking for violation logging
+        # When implemented, extract from http_request:
+        # - IP: http_request.headers.get("X-Forwarded-For") or http_request.client.host
+        # - User-Agent: http_request.headers.get("User-Agent")
+        
+        # Check for toxic content before processing (logs violations if detected)
+        check_content_toxicity(
+            inference_request.prompt,
+            user_id=current_user.id
+        )
         
         # Check cache first
-        cached_result = redis_service.get_cached_optimization(request.prompt, request.inference_type.value)
+        cached_result = redis_service.get_cached_optimization(inference_request.prompt, inference_request.inference_type.value)
         if cached_result:
             logger.info("Returning cached result")
             
@@ -93,9 +112,9 @@ async def optimize_prompt_endpoint(
             prompt_history_id = None
             try:
                 history_data = PromptHistoryCreate(
-                    original_prompt=request.prompt,
+                    original_prompt=inference_request.prompt,
                     optimized_prompt=cached_result["optimized_prompt"],
-                    inference_type=HistoryInferenceType(request.inference_type.value),
+                    inference_type=HistoryInferenceType(inference_request.inference_type.value),
                     model_used=cached_result["model_used"],
                     tokens_used=cached_result["tokens_used"],
                     processing_time_ms=int((time.time() - start_time) * 1000)
@@ -111,18 +130,18 @@ async def optimize_prompt_endpoint(
             return InferenceResponse(
                 output=cached_result["optimized_prompt"],
                 tokens_used=cached_result["tokens_used"],
-                inference_type=request.inference_type.value,
+                inference_type=inference_request.inference_type.value,
                 model_used=cached_result["model_used"],
                 cached=True,
                 prompt_history_id=prompt_history_id
             )
         
         # Route to appropriate inference based on type
-        if request.inference_type == InferenceType.LAZY:
-            optimized_prompt, tokens_used = lazy_optimize_prompt(request.prompt)
+        if inference_request.inference_type == InferenceType.LAZY:
+            optimized_prompt, tokens_used = lazy_optimize_prompt(inference_request.prompt)
             model_used = settings.LAZY_MODEL
-        elif request.inference_type == InferenceType.PRO:
-            optimized_prompt, tokens_used = pro_optimize_prompt(request.prompt)
+        elif inference_request.inference_type == InferenceType.PRO:
+            optimized_prompt, tokens_used = pro_optimize_prompt(inference_request.prompt)
             model_used = settings.PRO_MODEL
         else:
             raise HTTPException(status_code=400, detail="Invalid inference type")
@@ -131,9 +150,9 @@ async def optimize_prompt_endpoint(
 
         # Cache the result
         redis_service.cache_optimized_prompt(
-            prompt=request.prompt,
+            prompt=inference_request.prompt,
             optimized_prompt=optimized_prompt,
-            inference_type=request.inference_type.value,
+            inference_type=inference_request.inference_type.value,
             model_used=model_used,
             tokens_used=tokens_used
         )
@@ -142,9 +161,9 @@ async def optimize_prompt_endpoint(
         prompt_history_id = None
         try:
             history_data = PromptHistoryCreate(
-                original_prompt=request.prompt,
+                original_prompt=inference_request.prompt,
                 optimized_prompt=optimized_prompt,
-                inference_type=HistoryInferenceType(request.inference_type.value),
+                inference_type=HistoryInferenceType(inference_request.inference_type.value),
                 model_used=model_used,
                 tokens_used=tokens_used,
                 processing_time_ms=processing_time_ms
@@ -162,7 +181,7 @@ async def optimize_prompt_endpoint(
         return InferenceResponse(
             output=optimized_prompt,
             tokens_used=tokens_used,
-            inference_type=request.inference_type.value,
+            inference_type=inference_request.inference_type.value,
             model_used=model_used,
             cached=False,
             prompt_history_id=prompt_history_id
@@ -171,7 +190,7 @@ async def optimize_prompt_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in {request.inference_type} prompt optimization: {str(e)}")
+        logger.error(f"Error in {inference_request.inference_type} prompt optimization: {str(e)}")
         raise handle_openai_error(e)
 
 @router.get("/health")
