@@ -30,7 +30,7 @@
 - ✅ Input validation and sanitization with `sanitize_prompt()` and `validate_prompt()`
 - ✅ Comprehensive OpenAI error handling with `handle_openai_error()`
 - ✅ **OpenAI API Rate Limiting**: 60 requests/minute protection
-- ⚠️ **CRITICAL GAP**: No rate limiting on inference endpoints (main feature unprotected)
+- ✅ **Inference Endpoint Rate Limiting**: Fully protected with multi-tier system
 
 ### **📝 Prompt History System**
 - ✅ Complete prompt history CRUD operations
@@ -124,9 +124,9 @@
 6. **✅ Graceful Degradation**: Fallback mechanisms when Redis unavailable
 
 ### **Remaining Security Considerations**
-1. **Guardrails Not Active**: Documentation exists but no active enforcement
-2. **Content Filtering**: No active content safety checks
-3. **Quality Control**: No enforcement of response quality standards
+1. ✅ **Content Filtering**: Active with OpenAI Moderation API + Jailbreak detection
+2. ✅ **Violation Tracking**: Toxic content and jailbreak attempts logged to Supabase
+3. ⚠️ **Quality Control**: No enforcement of response quality standards (documentation only)
 
 ---
 
