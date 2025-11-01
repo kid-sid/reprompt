@@ -11,6 +11,7 @@ from config import settings
 from supabase import create_client, Client
 from routes.feedback_router import router as feedback_router
 from middleware.rate_limiting_middleware import RateLimitingMiddleware
+from services.content_violations_service import initialize_violations_service
 
 # Configure logging
 logging.basicConfig(
@@ -75,6 +76,17 @@ logger.info("Including feedback router...")
 app.include_router(feedback_router, prefix="/api/v1", tags=["feedback"])
 
 logger.info("All routers included successfully")
+
+# Initialize content violations service with service role client
+try:
+    if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
+        violations_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+        initialize_violations_service(violations_supabase)
+        logger.info("Content violations service initialized successfully")
+    else:
+        logger.warning("Supabase credentials not available - violation logging will be disabled")
+except Exception as e:
+    logger.error(f"Failed to initialize content violations service: {e}")
 
 @app.get("/")
 async def root():
