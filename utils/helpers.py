@@ -205,3 +205,25 @@ def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
         
     except Exception:
         return str(text)[:max_length] if text else ""
+
+# TODO: Add ip_address and user_agent parameters when implementing IP tracking
+def check_content_toxicity(
+    prompt: str,
+    user_id: Optional[str] = None
+) -> None:
+    """
+    Check if prompt contains toxic or inappropriate content.
+    Raises HTTPException if content is flagged.
+    
+    Args:
+        prompt: The prompt text to check
+        user_id: Optional user ID for logging violations
+        # TODO: ip_address: Optional IP address for logging
+        # TODO: user_agent: Optional user agent for logging
+        
+    Raises:
+        HTTPException: 400 if content is flagged as toxic
+    """
+    # Lazy import to avoid circular dependencies
+    from services.content_filter_service import check_content_toxicity as _check_toxicity
+    _check_toxicity(prompt, user_id=user_id)
