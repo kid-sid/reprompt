@@ -727,7 +727,7 @@
     }
     
     .send-btn {
-      padding: 0.75rem 1.5rem;
+      padding: 0.75rem;
       background: var(--primary-color);
       color: white;
       border: none;
@@ -737,9 +737,16 @@
       transition: all 0.2s ease;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      min-width: 80px;
       justify-content: center;
+      min-width: 48px;
+      width: 48px;
+      height: 48px;
+    }
+    
+    .send-btn svg {
+      width: 20px;
+      height: 20px;
+      stroke: white;
     }
     
     .send-btn:hover:not(:disabled) {
@@ -795,8 +802,15 @@
       }
       
       .send-btn {
-        padding: 0.75rem 1rem;
-        min-width: 60px;
+        padding: 0.625rem;
+        min-width: 44px;
+        width: 44px;
+        height: 44px;
+      }
+      
+      .send-btn svg {
+        width: 18px;
+        height: 18px;
       }
     }
     
@@ -990,8 +1004,10 @@
             </div>
           </div>
           <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message">
-            <span>📤</span>
-            <span>Send</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
           </button>
         </form>
       </div>
