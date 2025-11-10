@@ -1,7 +1,8 @@
 from config import settings
 from services.openai_service import openai_client
-from utils.helpers import handle_openai_error, sanitize_prompt, validate_prompt
+from utils.helpers import handle_openai_error, sanitize_prompt, validate_prompt, check_content_toxicity
 from utils.prompt_loader import load_lazy_prompt
+from fastapi import HTTPException
 
 def optimize_prompt(prompt: str) -> tuple[str, int]:
     """
@@ -23,6 +24,10 @@ def optimize_prompt(prompt: str) -> tuple[str, int]:
             raise ValueError("Prompt can't be empty")
         if not validate_prompt(prompt):
             raise ValueError("Invalid prompt")
+        
+        # Check for toxic content before processing (user_id not available at this level)
+        check_content_toxicity(prompt)
+        
         # Load the lazy prompt from file
         system_prompt = load_lazy_prompt()
         
@@ -46,6 +51,9 @@ def optimize_prompt(prompt: str) -> tuple[str, int]:
         tokens_used = completion.usage.total_tokens if completion.usage else 0
         
         return optimized_prompt, tokens_used
+    except HTTPException:
+        # Re-raise HTTPExceptions (e.g., from content filtering)
+        raise
     except ValueError as e:
         raise e
     except Exception as e:

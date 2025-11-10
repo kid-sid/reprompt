@@ -6,7 +6,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Auth-purple.svg)](https://supabase.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A production-ready FastAPI application that optimizes user prompts using AI to make them more efficient and effective. Features dual inference modes (Lazy/Pro), user authentication, comprehensive rate limiting system, Redis caching, prompt history, feedback system, and a modern web interface.
+A production-ready FastAPI application that optimizes user prompts using AI to make them more efficient and effective. Features dual inference modes (Lazy/Pro), user authentication, comprehensive rate limiting system, active content filtering with jailbreak detection, Redis caching, prompt history, feedback system, violation tracking, and a modern ChatGPT-style web interface.
 
 ## ✨ Features
 
@@ -47,19 +47,24 @@ A production-ready FastAPI application that optimizes user prompts using AI to m
 - **Environment-based Configuration** for different deployments
 
 ### 🌐 **Modern Web Interface**
+- **ChatGPT-style Design** with clean, modern UI
 - **Responsive Design** with dark/light theme toggle
 - **Real-time Chat Interface** with message history
 - **Mode Selection** (Lazy/Pro) with visual indicators
 - **Authentication UI** with login/register forms
 - **Loading States & Error Handling** for better UX
+- **Icon-based Send Button** matching modern chat interfaces
 
-### 🛡️ **Security & Guardrails**
-- **Comprehensive Security Documentation** with guardrails prompts
-- **Input Validation** and sanitization
-- **Error Handling** without information leakage
-- **JWT Authentication** with secure token management
-- **Content Filtering Guidelines** (documentation ready)
-- **Quality Control Standards** (documentation ready)
+### 🛡️ **Security & Content Protection**
+- **✅ Active Content Filtering** using OpenAI Moderation API
+- **✅ Jailbreak Detection** with regex pattern matching (15+ patterns)
+- **✅ Violation Tracking** - All toxic content and jailbreak attempts logged to Supabase
+- **✅ Real-time Content Analysis** before processing prompts
+- **✅ Comprehensive Security Documentation** with guardrails prompts
+- **✅ Input Validation** and sanitization
+- **✅ Error Handling** without information leakage
+- **✅ JWT Authentication** with secure token management
+- **⚠️ Quality Control Standards** (documentation ready for implementation)
 
 ## 🏗️ Architecture
 
@@ -76,6 +81,8 @@ reprompt/
 │   ├── redis.py           # Redis caching service
 │   ├── prompt_history_service.py # Prompt history management
 │   ├── feedback_service.py # Feedback system service
+│   ├── content_filter_service.py # Content toxicity & jailbreak detection
+│   ├── content_violations_service.py # Violation tracking service
 │   └── rate_limiter/      # Rate limiting system
 │       ├── rate_limiting_service.py # Centralized rate limiting service
 │       └── rate_limits_config.py   # Rate limiting configuration
@@ -119,10 +126,16 @@ reprompt/
 │   ├── test_rate_limiting.py # Rate limiting tests
 │   └── test_rate_limiting_offline.py # Offline rate limiting tests
 ├── 📁 utils/               # Utility functions
+│   ├── helpers.py         # Helper utilities (validation, sanitization)
+│   ├── prompt_loader.py   # Prompt loading utilities
 │   └── rate_limiting_utils.py # Rate limiting helper functions
 ├── 📁 middleware/          # FastAPI middleware
 │   └── rate_limiting_middleware.py # Rate limiting middleware
 ├── 📁 database/            # Database schemas
+│   ├── supabase.sql       # Main database setup
+│   ├── prompt_history.sql # Prompt history tables
+│   ├── feedback.sql       # Feedback system tables
+│   └── content_violations.sql # Content violations tracking
 ├── main.py                 # FastAPI application entry point
 ├── config.py               # Configuration management
 └── requirements.txt        # Python dependencies
@@ -192,6 +205,7 @@ reprompt/
    # - supabase.sql (main database setup)
    # - prompt_history.sql (prompt history tables)
    # - feedback.sql (feedback system tables)
+   # - content_violations.sql (content violations tracking)
    ```
 
 7. **Run the application**
@@ -364,6 +378,38 @@ CMD ["python", "main.py"]
 - **Uptime**: 99.9% (with proper infrastructure)
 - **Rate Limiting Algorithm**: Fixed Window Counter with Redis backend
 
+## 🛡️ Content Filtering & Safety
+
+### **Active Content Protection**
+Our application implements comprehensive content filtering to ensure safe and appropriate interactions:
+
+**🔍 OpenAI Moderation API Integration**
+- Real-time toxicity detection before processing prompts
+- Multiple category analysis (hate, harassment, self-harm, sexual content, violence, etc.)
+- Automatic blocking of flagged content with clear error messages
+
+**🚫 Jailbreak Detection**
+- Regex pattern matching with 15+ detection patterns
+- Detects prompt injection attempts like:
+  - "ignore previous instructions"
+  - "forget all"
+  - "you are now..." / "act as if..."
+  - "developer mode" / "jailbreak"
+  - And many more variations
+
+**📊 Violation Tracking**
+- All toxic content and jailbreak attempts logged to Supabase
+- User information tracked for security analysis
+- Violation types: `toxic`, `jailbreak`, `prompt_injection`, `spam`, `malicious`
+- Category scores and flagged categories stored for analysis
+- Database table: `content_violations` with proper indexing
+
+**🔄 Implementation Details**
+- Content checked before processing (early detection)
+- Asynchronous violation logging (non-blocking)
+- User-friendly error messages without exposing system details
+- Service role key for secure database logging
+
 ## 🚦 Rate Limiting System
 
 ### **Multi-Tier Architecture**
@@ -419,6 +465,10 @@ redis.expire(minute_key, 120)  # Auto-cleanup
 - **✅ Abuse Prevention**: Comprehensive protection against DoS attacks
 - **✅ Fair Usage**: Per-user rate limiting with tier-based limits
 - **✅ Distributed System Support**: Redis-based rate limiting for scalability
+- **✅ Content Filtering**: OpenAI Moderation API integration for toxicity detection
+- **✅ Jailbreak Detection**: Regex pattern matching (15+ patterns) to detect prompt injection attempts
+- **✅ Violation Tracking**: All toxic content and jailbreak attempts logged with user information to Supabase
+- **✅ Real-time Protection**: Content checked before processing to prevent toxic outputs
 
 ## 🤝 Contributing
 
@@ -462,11 +512,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ **COMPLETED**: Implement inference endpoint rate limiting
 - ✅ **COMPLETED**: Add user-based rate limiting system
 - ✅ **COMPLETED**: Implement Redis-based distributed rate limiting
+- ✅ **COMPLETED**: Active content filtering with OpenAI Moderation API
+- ✅ **COMPLETED**: Jailbreak detection and prevention
+- ✅ **COMPLETED**: Violation tracking system
 - [ ] Frontend integration for prompt history management
 - [ ] Frontend integration for feedback display
 - [ ] Advanced caching strategies and analytics
 - [ ] User dashboard and preferences
 - [ ] Subscription and payment system integration
+- [ ] IP address tracking for violations (TODO: implement proxy support)
 
 ### Phase 3 (Future)
 - [ ] Custom model fine-tuning
@@ -474,8 +528,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Advanced prompt templates
 - [ ] Team collaboration features
 - [ ] Enterprise features
-- [ ] Active guardrails enforcement
+- [ ] Quality control enforcement
 - [ ] Monitoring using Grafana
+- [ ] Advanced analytics dashboard for violations
 
 ## 🚨 Important Notes
 
@@ -494,6 +549,9 @@ This application is **production-ready** with comprehensive features and **full 
 - ✅ Graceful fallback when Redis unavailable
 - ✅ Comprehensive error handling and monitoring
 - ✅ Cost control and abuse prevention
+- ✅ Active content filtering with OpenAI Moderation API
+- ✅ Jailbreak detection and prevention
+- ✅ Comprehensive violation tracking and logging
 
 ---
 
