@@ -29,29 +29,88 @@ function checkAuthentication() {
 }
 
 // ===== UTILITY FUNCTIONS =====
-function showToast(message, type = "info", duration = 3000) {
-  // Create toast element
+function showToast(message, type = "info", duration = 3200) {
+  const palette = {
+    success: {
+      bg: "rgba(34, 197, 94, 0.16)",
+      border: "rgba(34, 197, 94, 0.45)",
+      icon: "✅"
+    },
+    error: {
+      bg: "rgba(239, 68, 68, 0.16)",
+      border: "rgba(239, 68, 68, 0.45)",
+      icon: "⚠️"
+    },
+    warning: {
+      bg: "rgba(245, 158, 11, 0.18)",
+      border: "rgba(245, 158, 11, 0.45)",
+      icon: "⚡"
+    },
+    info: {
+      bg: "rgba(99, 102, 241, 0.18)",
+      border: "rgba(129, 140, 248, 0.45)",
+      icon: "💡"
+    }
+  };
+
+  const config = palette[type] || palette.info;
   const toast = document.createElement("div");
-  toast.className = `toast toast-${type}`;
-  toast.textContent = message;
+  toast.className = `reprompt-toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${config.icon}</span>
+    <span class="toast-message">${message}</span>
+  `;
+
+  const existingToasts = document.querySelectorAll(".reprompt-toast").length;
   toast.style.cssText = `
     position: fixed;
-    top: 20px;
-    right: 20px;
-    background: ${type === "error" ? "#ef4444" : type === "success" ? "#10b981" : "#3b82f6"};
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    right: 24px;
+    bottom: ${24 + existingToasts * 72}px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem 1.2rem;
+    background: ${config.bg};
+    border: 1px solid ${config.border};
+    color: #e2e8f0;
+    border-radius: 14px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 24px 48px -20px rgba(15, 23, 42, 0.65);
     z-index: 10000;
+    font-size: 0.9rem;
+    font-weight: 500;
+    min-width: 240px;
     animation: slideIn 0.3s ease;
   `;
-  
+
   document.body.appendChild(toast);
+
+  const iconEl = toast.querySelector(".toast-icon");
+  if (iconEl) {
+    iconEl.style.cssText = `
+      font-size: 1.05rem;
+      display: inline-flex;
+      align-items: center;
+    `;
+  }
+
+  const messageEl = toast.querySelector(".toast-message");
+  if (messageEl) {
+    messageEl.style.cssText = `
+      flex: 1;
+      line-height: 1.5;
+    `;
+  }
   
   setTimeout(() => {
     toast.style.animation = "slideOut 0.3s ease";
-    setTimeout(() => toast.remove(), 300);
+    setTimeout(() => {
+      toast.remove();
+      const remainingToasts = document.querySelectorAll(".reprompt-toast");
+      remainingToasts.forEach((el, index) => {
+        el.style.bottom = `${24 + index * 72}px`;
+      });
+    }, 280);
   }, duration);
 }
 
@@ -396,14 +455,19 @@ function updateSessionStatus() {
     sessionStatus.id = "sessionStatus";
     sessionStatus.style.cssText = `
       position: fixed;
-      top: 10px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      z-index: 1000;
+      top: 22px;
+      right: 24px;
+      background: rgba(99, 102, 241, 0.16);
+      color: #e2e8f0;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1px solid rgba(129, 140, 248, 0.32);
+      box-shadow: 0 18px 36px -22px rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      z-index: 1200;
       display: none;
     `;
     document.body.appendChild(sessionStatus);
@@ -417,11 +481,14 @@ function updateSessionStatus() {
     
     // Change color based on urgency
     if (timeUntilExpiry <= 5 * 60 * 1000) {
-      sessionStatus.style.background = 'rgba(239, 68, 68, 0.9)'; // Red
+      sessionStatus.style.background = 'rgba(239, 68, 68, 0.2)';
+      sessionStatus.style.border = '1px solid rgba(239, 68, 68, 0.45)';
     } else if (timeUntilExpiry <= 15 * 60 * 1000) {
-      sessionStatus.style.background = 'rgba(245, 158, 11, 0.9)'; // Orange
+      sessionStatus.style.background = 'rgba(245, 158, 11, 0.18)';
+      sessionStatus.style.border = '1px solid rgba(245, 158, 11, 0.45)';
     } else {
-      sessionStatus.style.background = 'rgba(59, 130, 246, 0.9)'; // Blue
+      sessionStatus.style.background = 'rgba(99, 102, 241, 0.16)';
+      sessionStatus.style.border = '1px solid rgba(129, 140, 248, 0.32)';
     }
   } else {
     sessionStatus.style.display = 'none';
@@ -655,9 +722,9 @@ function addUserMessage(text) {
       <div class="message-header">
         <span class="message-role">You</span>
         <div class="message-actions">
-          <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message">
-            <span>📋</span>
-            <span>Copy</span>
+          <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message" aria-label="Copy message">
+            <span class="copy-icon" aria-hidden="true">📋</span>
+            <span class="copy-feedback" aria-hidden="true">Copied!</span>
           </button>
         </div>
       </div>
@@ -684,9 +751,9 @@ function addAssistantMessage(text, mode, model, tokens, promptHistoryId = null) 
       <div class="message-header">
         <span class="message-role">Assistant</span>
         <div class="message-actions top-actions">
-          <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message">
-            <span>📋</span>
-            <span>Copy</span>
+          <button class="message-action-btn" onclick="copyMessageText(this)" title="Copy message" aria-label="Copy message">
+            <span class="copy-icon" aria-hidden="true">📋</span>
+            <span class="copy-feedback" aria-hidden="true">Copied!</span>
           </button>
         </div>
       </div>
@@ -950,15 +1017,28 @@ function copyMessageText(button) {
   const textToCopy = textElement.textContent.trim();
   
   navigator.clipboard.writeText(textToCopy).then(() => {
-    const copyText = button.querySelector("span:last-child");
-    const originalText = copyText.textContent;
-    
+    const icon = button.querySelector(".copy-icon");
+    const feedback = button.querySelector(".copy-feedback");
+
     button.classList.add("copied");
-    copyText.textContent = "Copied!";
+    button.setAttribute("aria-label", "Copied!");
+
+    if (icon) {
+      icon.setAttribute("aria-hidden", "true");
+    }
+    if (feedback) {
+      feedback.setAttribute("aria-hidden", "false");
+    }
     
     setTimeout(() => {
       button.classList.remove("copied");
-      copyText.textContent = originalText;
+      button.setAttribute("aria-label", "Copy message");
+      if (icon) {
+        icon.setAttribute("aria-hidden", "true");
+      }
+      if (feedback) {
+        feedback.setAttribute("aria-hidden", "true");
+      }
     }, 2000);
     
     showToast("Message copied to clipboard", "success", 2000);
