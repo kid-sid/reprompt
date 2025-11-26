@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from routes.inference_router import router as inference_router
 from routes.auth_router import router as auth_router
 from routes.prompt_history_router import router as prompt_history_router
+from routes.collaboration_router import router as collaboration_router
 import logging
 import os
 from config import settings
@@ -74,6 +75,9 @@ app.include_router(prompt_history_router, prefix="/api/v1", tags=["prompt-histor
 
 logger.info("Including feedback router...")
 app.include_router(feedback_router, prefix="/api/v1", tags=["feedback"])
+
+logger.info("Including collaboration router...")
+app.include_router(collaboration_router, prefix="/api/v1", tags=["collaboration"])
 
 logger.info("All routers included successfully")
 
