@@ -94,14 +94,13 @@ def check_rate_limit_for_user(request: Request, endpoint: str, user: UserProfile
         
     except RateLimitExceeded as e:
         logger.warning(f"Rate limit exceeded for user {user.id}: {e.message}")
+        message = (
+            f"Rate limit exceeded ({e.limit_type}). "
+            f"{e.message} Retry after {e.retry_after} seconds."
+        )
         raise HTTPException(
             status_code=429,
-            detail={
-                "error": "rate_limit_exceeded",
-                "message": e.message,
-                "retry_after": e.retry_after,
-                "limit_type": e.limit_type
-            },
+            detail=message,
             headers={"Retry-After": str(e.retry_after)}
         )
     except Exception as e:
@@ -141,14 +140,13 @@ def check_rate_limit_for_ip(request: Request, endpoint: str) -> None:
         
     except RateLimitExceeded as e:
         logger.warning(f"Rate limit exceeded for IP {ip}: {e.message}")
+        message = (
+            f"Rate limit exceeded ({e.limit_type}). "
+            f"{e.message} Retry after {e.retry_after} seconds."
+        )
         raise HTTPException(
             status_code=429,
-            detail={
-                "error": "rate_limit_exceeded",
-                "message": e.message,
-                "retry_after": e.retry_after,
-                "limit_type": e.limit_type
-            },
+            detail=message,
             headers={"Retry-After": str(e.retry_after)}
         )
     except Exception as e:
