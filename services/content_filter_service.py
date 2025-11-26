@@ -3,12 +3,20 @@ Content Filtering Service
 Uses OpenAI Moderation API to detect toxic, harmful, or inappropriate content.
 Also detects jailbreak and prompt injection attempts.
 """
+import asyncio
 import logging
 import re
+import threading
 from typing import Dict, Any, Optional, Tuple
+
 from fastapi import HTTPException
 from openai import OpenAI
+
 from config import settings
+try:
+    from services.content_violations_service import content_violations_service
+except ImportError:  # pragma: no cover - graceful fallback if module unavailable
+    content_violations_service = None
 
 logger = logging.getLogger(__name__)
 
@@ -243,10 +251,6 @@ def _log_violation_async(
     Non-blocking - doesn't wait for completion.
     """
     try:
-        from services.content_violations_service import content_violations_service
-        import asyncio
-        import threading
-        
         if content_violations_service:
             # Run in background thread to avoid blocking
             def log_in_background():
