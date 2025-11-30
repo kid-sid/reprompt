@@ -10,7 +10,9 @@ export const ENDPOINTS = {
   LOGOUT: "/logout",
   CHAT: "/optimize-prompt",
   FEEDBACK: "/feedback",
-  FEEDBACK_STATS: "/feedback/stats"
+  FEEDBACK_STATS: "/feedback/stats",
+  COLLABORATION: "/collaboration",
+  COLLAB_SHARE: "/collaboration/share"
 };
 
 // Storage keys (to avoid hardcoding everywhere)

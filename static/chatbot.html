@@ -219,12 +219,17 @@
       background: rgba(30, 41, 59, 0.2);
       cursor: pointer;
       transition: transform 0.2s ease, border-color 0.2s ease, background 0.25s ease;
+      position: relative;
     }
 
     .chat-history-item:hover {
       border-color: rgba(129, 140, 248, 0.35);
       background: rgba(79, 70, 229, 0.18);
       transform: translateX(3px);
+    }
+
+    .chat-history-item:hover .chat-history-delete-btn {
+      opacity: 1;
     }
 
     .chat-history-preview {
@@ -245,6 +250,68 @@
       align-items: center;
       font-size: 0.7rem;
       color: rgba(148, 163, 184, 0.55);
+    }
+
+    .chat-history-delete-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      width: 1.75rem;
+      height: 1.75rem;
+      min-width: 1.75rem;
+      min-height: 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(239, 68, 68, 0.25);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+      z-index: 10;
+      padding: 0.25rem;
+      margin: 0;
+      line-height: 1;
+      box-sizing: border-box;
+    }
+
+    .chat-history-delete-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .chat-history-item:hover .chat-history-delete-btn {
+      opacity: 1;
+      background: rgba(239, 68, 68, 0.3);
+      border-color: rgba(239, 68, 68, 0.6);
+      transform: scale(1.1);
+    }
+
+    .chat-history-delete-btn:hover {
+      background: rgba(239, 68, 68, 0.4) !important;
+      border-color: rgba(239, 68, 68, 0.7) !important;
+      transform: scale(1.15);
+    }
+
+    .chat-history-delete-btn:active {
+      background: rgba(239, 68, 68, 0.5) !important;
+      transform: scale(1.05);
+    }
+
+    .chat-history-shared-label {
+      padding: 0.6rem 0.8rem;
+      margin: 0.2rem 0 0.6rem;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(129, 140, 248, 0.35);
+      background: rgba(79, 70, 229, 0.12);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.75);
+      text-align: center;
     }
 
     .chat-history-mode {
@@ -309,7 +376,7 @@
     .header {
       padding: 1.25rem 2rem;
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       align-items: center;
       gap: 1rem;
       border-bottom: 1px solid rgba(148, 163, 184, 0.12);
@@ -393,6 +460,46 @@
       background: rgba(239, 68, 68, 0.28);
     }
 
+    .collaboration-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-left: auto;
+    }
+
+    .share-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.55rem 0.9rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(129, 140, 248, 0.28);
+      background: rgba(79, 70, 229, 0.12);
+      color: var(--color-text-strong);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .share-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(129, 140, 248, 0.45);
+      background: rgba(99, 102, 241, 0.18);
+    }
+
+    .collab-permission-badge {
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(129, 140, 248, 0.32);
+      background: rgba(79, 70, 229, 0.18);
+      color: rgba(226, 232, 240, 0.85);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      display: none;
+    }
+
     .chat-container {
       flex: 1;
       overflow: hidden;
@@ -401,6 +508,323 @@
       flex-direction: column;
       align-items: center;
       padding: 1.25rem 1.5rem;
+    }
+
+    .collaboration-panel {
+      width: min(960px, 100%);
+      display: none;
+      flex-direction: column;
+      gap: 1.5rem;
+      align-items: stretch;
+      margin-top: 0.5rem;
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.65);
+      box-shadow: 0 18px 45px -28px rgba(15, 23, 42, 0.85);
+      padding: 1.75rem 1.9rem;
+      max-height: calc(100vh - 280px);
+      overflow-y: auto;
+    }
+
+    .collaboration-panel > * {
+      width: 100%;
+    }
+
+    .collaboration-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .collaboration-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .collaboration-panel::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.25);
+      border-radius: 999px;
+    }
+
+    .collaboration-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .collaboration-title {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .collaboration-title h2 {
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.88);
+    }
+
+    .collaboration-title span {
+      font-size: 0.82rem;
+      color: rgba(148, 163, 184, 0.68);
+    }
+
+    .collaboration-refresh-btn {
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      color: rgba(226, 232, 240, 0.85);
+      border-radius: var(--radius-lg);
+      padding: 0.45rem 0.85rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .collaboration-refresh-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(129, 140, 248, 0.45);
+      color: var(--color-text-strong);
+    }
+
+    .handoff-section,
+    .comments-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.4rem;
+      background: rgba(9, 13, 24, 0.75);
+      border: 1px solid rgba(99, 102, 241, 0.08);
+    }
+
+    .handoff-header,
+    .comments-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .handoff-header h3,
+    .comments-header h3 {
+      font-size: 0.92rem;
+      color: rgba(226, 232, 240, 0.82);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .handoff-textarea {
+      width: 100%;
+      min-height: 120px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.78);
+      color: var(--color-text);
+      padding: 0.9rem 1rem;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      resize: vertical;
+      max-height: 320px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .handoff-textarea:focus {
+      outline: none;
+      border-color: rgba(129, 140, 248, 0.45);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.22);
+    }
+
+    .handoff-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    .save-handoff-btn {
+      padding: 0.55rem 1.25rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(34, 197, 94, 0.38);
+      background: rgba(34, 197, 94, 0.18);
+      color: rgba(226, 240, 217, 0.9);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .save-handoff-btn[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .save-handoff-btn:not([disabled]):hover {
+      transform: translateY(-1px);
+      border-color: rgba(34, 197, 94, 0.55);
+    }
+
+    .handoff-hint {
+      font-size: 0.78rem;
+      color: rgba(148, 163, 184, 0.65);
+    }
+
+    .comments-header button {
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(99, 102, 241, 0.42);
+      background: rgba(79, 70, 229, 0.18);
+      color: rgba(226, 232, 240, 0.88);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .comments-header button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(129, 140, 248, 0.55);
+    }
+
+    .comment-composer {
+      display: none;
+      flex-direction: column;
+      gap: 0.75rem;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(129, 140, 248, 0.28);
+      background: rgba(17, 24, 39, 0.85);
+      padding: 1rem 1.1rem;
+    }
+
+    .comments-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .comment-composer textarea {
+      width: 100%;
+      min-height: 96px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.78);
+      color: var(--color-text);
+      padding: 0.75rem 0.85rem;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      resize: vertical;
+    }
+
+    .comment-composer select {
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.78);
+      color: var(--color-text);
+      padding: 0.55rem 0.75rem;
+      font-size: 0.85rem;
+    }
+
+    .comment-composer-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+
+    .comment-submit-btn {
+      padding: 0.45rem 1.1rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(129, 140, 248, 0.42);
+      background: rgba(79, 70, 229, 0.32);
+      color: rgba(226, 232, 240, 0.88);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .comment-cancel-btn {
+      padding: 0.45rem 0.95rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: transparent;
+      color: rgba(148, 163, 184, 0.75);
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+
+    .comments-empty-state {
+      text-align: center;
+      color: rgba(148, 163, 184, 0.65);
+      font-size: 0.84rem;
+      padding: 1.25rem 0.85rem;
+      border: 1px dashed rgba(148, 163, 184, 0.28);
+      border-radius: var(--radius-md);
+    }
+
+    .comment-card {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(10, 14, 24, 0.85);
+      padding: 0.95rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .comment-card.resolved {
+      border-color: rgba(34, 197, 94, 0.38);
+      background: rgba(22, 163, 74, 0.12);
+    }
+
+    .comment-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .comment-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.78rem;
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .comment-body {
+      color: rgba(226, 232, 240, 0.85);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .comment-actions {
+      display: flex;
+      gap: 0.55rem;
+    }
+
+    .comment-actions button {
+      padding: 0.35rem 0.65rem;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.65);
+      color: rgba(226, 232, 240, 0.82);
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+
+    .comment-actions button:hover {
+      border-color: rgba(129, 140, 248, 0.45);
+    }
+
+    .comment-quote {
+      font-size: 0.8rem;
+      color: rgba(129, 140, 248, 0.75);
+      border-left: 2px solid rgba(99, 102, 241, 0.35);
+      padding-left: 0.65rem;
     }
 
     .chat-messages {
@@ -816,6 +1240,110 @@
       pointer-events: none;
     }
 
+    .collaboration-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 15, 0.75);
+      backdrop-filter: blur(14px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1200;
+      padding: 2rem;
+    }
+
+    .collaboration-modal {
+      width: min(480px, 100%);
+      border-radius: var(--radius-xl);
+      background: rgba(9, 13, 24, 0.95);
+      border: 1px solid rgba(129, 140, 248, 0.28);
+      box-shadow: var(--shadow-float);
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+
+    .collaboration-modal header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .collaboration-modal h2 {
+      font-size: 1.1rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.88);
+    }
+
+    .modal-close-btn {
+      border: none;
+      background: transparent;
+      color: rgba(148, 163, 184, 0.75);
+      font-size: 1.25rem;
+      cursor: pointer;
+    }
+
+    .collaboration-modal label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .collaboration-modal select,
+    .collaboration-modal input[type="number"],
+    .collaboration-modal input[type="text"] {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.85);
+      color: var(--color-text);
+      padding: 0.6rem 0.75rem;
+      font-size: 0.88rem;
+    }
+
+    .share-url-row {
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+    }
+
+    .copy-share-btn {
+      padding: 0.55rem 1.1rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(99, 102, 241, 0.42);
+      background: rgba(79, 70, 229, 0.22);
+      color: rgba(226, 232, 240, 0.88);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .share-submit-btn {
+      padding: 0.6rem 1.35rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(99, 102, 241, 0.48);
+      background: rgba(79, 70, 229, 0.32);
+      color: rgba(226, 232, 240, 0.92);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      align-self: flex-end;
+    }
+
+    .share-hint {
+      font-size: 0.78rem;
+      color: rgba(148, 163, 184, 0.6);
+    }
+
+    .collaboration-inline-hint {
+      font-size: 0.78rem;
+      color: rgba(129, 140, 248, 0.7);
+    }
+
     @media (max-width: 1100px) {
       .app-shell {
         flex-direction: column;
@@ -965,10 +1493,17 @@
           </div>
         </div>
 
-        <button class="logout-btn" id="logoutBtn" aria-label="Logout">
-          <span>⎋</span>
-          <span>Sign Out</span>
-        </button>
+        <div class="collaboration-actions">
+          <button class="share-btn" id="shareBtn" aria-label="Share collaboration link" disabled>
+            <span>🔗</span>
+            <span>Share</span>
+          </button>
+          <span class="collab-permission-badge" id="collabPermissionBadge" aria-live="polite">VIEW</span>
+          <button class="logout-btn" id="logoutBtn" aria-label="Logout">
+            <span>⎋</span>
+            <span>Sign Out</span>
+          </button>
+        </div>
       </header>
 
       <div class="chat-container">
@@ -985,6 +1520,64 @@
         <button class="scroll-to-bottom" id="scrollToBottom" aria-label="Scroll to latest message">
           <span>⬇</span>
         </button>
+      </div>
+
+      <div class="collaboration-panel" id="collaborationPanel" aria-live="polite">
+        <div class="collaboration-header">
+          <div class="collaboration-title">
+            <h2>Collaboration</h2>
+            <span id="collaborationSummary">Invite teammates to review this prompt.</span>
+          </div>
+          <button class="collaboration-refresh-btn" id="collaborationRefreshBtn" type="button">Refresh</button>
+        </div>
+
+        <div class="handoff-section">
+          <div class="handoff-header">
+            <h3>Handoff Notes</h3>
+            <span class="collaboration-inline-hint" id="handoffStatusHint"></span>
+          </div>
+          <textarea
+            class="handoff-textarea"
+            id="handoffTextarea"
+            placeholder="Document next steps or context for the next teammate."
+            aria-label="Handoff notes"
+          ></textarea>
+          <div class="handoff-actions">
+            <button class="save-handoff-btn" id="saveHandoffBtn" type="button">Save Notes</button>
+            <span class="handoff-hint" id="handoffHintText">Editors can update notes for smoother handoffs.</span>
+          </div>
+        </div>
+
+        <div class="comments-section">
+          <div class="comments-header">
+            <h3>Inline Comments</h3>
+            <button id="toggleCommentComposerBtn" type="button">New Comment</button>
+          </div>
+          <div class="comment-composer" id="commentComposer">
+            <div class="collaboration-inline-hint" id="commentSelectionPreview">
+              Select text in the prompt to anchor your comment.
+            </div>
+            <label for="commentTarget">Target</label>
+            <select id="commentTarget">
+              <option value="original">Original prompt</option>
+              <option value="optimized">Optimized prompt</option>
+            </select>
+            <textarea
+              id="commentBody"
+              placeholder="Leave feedback or ask a question..."
+              aria-label="Comment body"
+            ></textarea>
+            <div class="comment-composer-actions">
+              <button class="comment-cancel-btn" id="cancelCommentBtn" type="button">Cancel</button>
+              <button class="comment-submit-btn" id="submitCommentBtn" type="button">Post Comment</button>
+            </div>
+          </div>
+          <div class="comments-list" id="commentsList">
+            <div class="comments-empty-state" id="commentsEmptyState">
+              No comments yet. Highlight text in the prompt to start a thread.
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="input-container">
@@ -1011,6 +1604,43 @@
         </form>
       </div>
     </main>
+  </div>
+
+  <div
+    class="collaboration-modal-overlay"
+    id="shareModal"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+  >
+    <div class="collaboration-modal">
+      <header>
+        <h2>Share Prompt</h2>
+        <button class="modal-close-btn" id="closeShareModalBtn" aria-label="Close share modal">×</button>
+      </header>
+      <p class="share-hint">
+        Generate a link teammates can use to join this prompt collaboration. Only the prompt owner can update the link.
+      </p>
+      <form id="shareForm">
+        <label for="sharePermission">
+          Permission
+          <select id="sharePermission">
+            <option value="view">View only</option>
+            <option value="comment">Can comment</option>
+            <option value="edit">Can edit</option>
+          </select>
+        </label>
+        <label for="shareExpiry">
+          Expire after (hours)
+          <input type="number" id="shareExpiry" min="1" max="720" placeholder="Optional" />
+        </label>
+        <div class="share-url-row" id="shareUrlRow" style="display: none;">
+          <input type="text" id="shareUrl" readonly aria-label="Share URL" />
+          <button type="button" class="copy-share-btn" id="copyShareUrlBtn">Copy</button>
+        </div>
+        <button type="submit" class="share-submit-btn" id="generateShareBtn">Generate Link</button>
+      </form>
+    </div>
   </div>
 
   <script type="module" src="/static/config.js"></script>
