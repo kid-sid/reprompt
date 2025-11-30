@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 # TODO: Add Request import when implementing IP tracking
 # from starlette.requests import Request
 from schemas.inference_schema import InferenceRequest, InferenceResponse, InferenceType
-from schemas.prompt_history_schema import PromptHistoryCreate, InferenceType as HistoryInferenceType
+from schemas.prompt_history_schema import PromptHistoryCreate
 from models.lazy_inference import optimize_prompt as lazy_optimize_prompt
 from models.pro_inference import optimize_prompt as pro_optimize_prompt
 from services.redis import RedisService
@@ -114,7 +114,7 @@ async def optimize_prompt_endpoint(
                 history_data = PromptHistoryCreate(
                     original_prompt=inference_request.prompt,
                     optimized_prompt=cached_result["optimized_prompt"],
-                    inference_type=HistoryInferenceType(inference_request.inference_type.value),
+                    inference_type=inference_request.inference_type,
                     model_used=cached_result["model_used"],
                     tokens_used=cached_result["tokens_used"],
                     processing_time_ms=int((time.time() - start_time) * 1000)
@@ -163,7 +163,7 @@ async def optimize_prompt_endpoint(
             history_data = PromptHistoryCreate(
                 original_prompt=inference_request.prompt,
                 optimized_prompt=optimized_prompt,
-                inference_type=HistoryInferenceType(inference_request.inference_type.value),
+                inference_type=inference_request.inference_type,
                 model_used=model_used,
                 tokens_used=tokens_used,
                 processing_time_ms=processing_time_ms
