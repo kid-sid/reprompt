@@ -67,10 +67,20 @@ async function handleLogin(event) {
       
       console.log("Login successful, redirecting to:", ROUTES.CHATBOT);
       
+      const pendingRedirect = sessionStorage.getItem("pendingShareRedirect");
+      const redirectTarget = pendingRedirect || ROUTES.CHATBOT;
+
+      if (pendingRedirect) {
+        console.log("Redirecting to pending collaboration link:", pendingRedirect);
+        sessionStorage.removeItem("pendingShareRedirect");
+      } else {
+        console.log("Redirecting to default chatbot route.");
+      }
+
       // Redirect to chatbot page after a short delay
       setTimeout(() => {
-        console.log("Executing redirect to:", ROUTES.CHATBOT);
-        window.location.href = ROUTES.CHATBOT;
+        console.log("Executing redirect to:", redirectTarget);
+        window.location.href = redirectTarget;
       }, 1000);
     } else {
       showMessage(messageDiv, "❌ " + (data.detail || "Login failed."), "error");

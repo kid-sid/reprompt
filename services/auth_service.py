@@ -296,6 +296,9 @@ class AuthService:
                             message="Invalid email or password"
                         )
                         
+                except AuthError:
+                    # Re-raise AuthError exceptions immediately without processing
+                    raise
                 except Exception as auth_error:
                     # Record failed attempt
                     self.rate_limiter.record_failed_login(email)

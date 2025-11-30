@@ -99,7 +99,8 @@ class PromptHistoryService:
                     "inference_type": prompt_data.inference_type.value,
                     "model_used": prompt_data.model_used,
                     "tokens_used": prompt_data.tokens_used,
-                    "processing_time_ms": prompt_data.processing_time_ms
+                    "processing_time_ms": prompt_data.processing_time_ms,
+                    "handoff_notes": prompt_data.handoff_notes,
                 }
                 
                 # Insert into database
@@ -120,6 +121,7 @@ class PromptHistoryService:
                     model_used=history_entry["model_used"],
                     tokens_used=history_entry["tokens_used"],
                     processing_time_ms=history_entry["processing_time_ms"],
+                    handoff_notes=history_entry.get("handoff_notes"),
                     created_at=datetime.fromisoformat(history_entry["created_at"].replace('Z', '+00:00')),
                     updated_at=datetime.fromisoformat(history_entry["updated_at"].replace('Z', '+00:00'))
                 )
@@ -177,6 +179,7 @@ class PromptHistoryService:
                         model_used=item["model_used"],
                         tokens_used=item["tokens_used"],
                         processing_time_ms=item["processing_time_ms"],
+                        handoff_notes=item.get("handoff_notes"),
                         created_at=datetime.fromisoformat(item["created_at"].replace('Z', '+00:00')),
                         updated_at=datetime.fromisoformat(item["updated_at"].replace('Z', '+00:00'))
                     ))
@@ -223,6 +226,7 @@ class PromptHistoryService:
                     model_used=item["model_used"],
                     tokens_used=item["tokens_used"],
                     processing_time_ms=item["processing_time_ms"],
+                    handoff_notes=item.get("handoff_notes"),
                     created_at=datetime.fromisoformat(item["created_at"].replace('Z', '+00:00')),
                     updated_at=datetime.fromisoformat(item["updated_at"].replace('Z', '+00:00'))
                 )
@@ -268,6 +272,7 @@ class PromptHistoryService:
                     model_used=item["model_used"],
                     tokens_used=item["tokens_used"],
                     processing_time_ms=item["processing_time_ms"],
+                    handoff_notes=item.get("handoff_notes"),
                     created_at=datetime.fromisoformat(item["created_at"].replace('Z', '+00:00')),
                     updated_at=datetime.fromisoformat(item["updated_at"].replace('Z', '+00:00'))
                 )
