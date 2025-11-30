@@ -148,6 +148,11 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
             logger.warning("Rate limiter not available, skipping rate limiting")
             return await call_next(request)
         
+        # Initialize variables to safe defaults
+        identifier = None
+        endpoint_category = None
+        rate_limit_info = None
+        
         try:
             # Get identifier and endpoint category
             identifier = self._get_identifier(request)
@@ -175,7 +180,7 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
         except RateLimitExceeded as e:
             logger.warning(f"Rate limit exceeded: {e.message}")
             
-            # Create error response
+            # Create error response with safe defaults if variables weren't set
             error_response = JSONResponse(
                 status_code=429,
                 content={
@@ -183,13 +188,13 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
                     "message": e.message,
                     "retry_after": e.retry_after,
                     "limit_type": e.limit_type,
-                    "endpoint": endpoint_category,
-                    "identifier": identifier
+                    "endpoint": endpoint_category or "unknown",
+                    "identifier": identifier or "unknown"
                 }
             )
             
-            # Add rate limiting headers to error response
-            if 'rate_limit_info' in locals():
+            # Add rate limiting headers to error response if available
+            if rate_limit_info:
                 self._add_rate_limit_headers(error_response, rate_limit_info)
             
             # Add Retry-After header
