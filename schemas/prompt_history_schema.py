@@ -3,11 +3,8 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List
 from datetime import datetime
-from enum import Enum
 
-class InferenceType(str, Enum):
-    LAZY = "lazy"
-    PRO = "pro"
+from schemas.inference_schema import InferenceType
 
 class PromptHistoryCreate(BaseModel):
     """Schema for creating a new prompt history entry"""
@@ -17,6 +14,7 @@ class PromptHistoryCreate(BaseModel):
     model_used: str = Field(..., description="AI model used for optimization")
     tokens_used: int = Field(default=0, ge=0, description="Number of tokens used")
     processing_time_ms: int = Field(default=0, ge=0, description="Processing time in milliseconds")
+    handoff_notes: Optional[str] = Field(None, description="Collaboration handoff notes")
     
     @validator('original_prompt', 'optimized_prompt')
     def validate_prompt_content(cls, v):
@@ -40,6 +38,7 @@ class PromptHistoryResponse(BaseModel):
     model_used: str = Field(..., description="AI model used for optimization")
     tokens_used: int = Field(..., description="Number of tokens used")
     processing_time_ms: int = Field(..., description="Processing time in milliseconds")
+    handoff_notes: Optional[str] = Field(None, description="Collaboration handoff notes")
     created_at: datetime = Field(..., description="When this entry was created")
     updated_at: datetime = Field(..., description="When this entry was last updated")
     
@@ -63,6 +62,7 @@ class PromptHistoryUpdate(BaseModel):
     model_used: Optional[str] = None
     tokens_used: Optional[int] = Field(None, ge=0)
     processing_time_ms: Optional[int] = Field(None, ge=0)
+    handoff_notes: Optional[str] = Field(None, description="Updated handoff notes")
     
     @validator('original_prompt', 'optimized_prompt')
     def validate_prompt_content(cls, v):
